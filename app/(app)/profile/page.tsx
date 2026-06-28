@@ -151,8 +151,8 @@ export default function ProfilePage() {
           <div className="flex items-center gap-3">
             <Gem className="h-5 w-5 text-plum" />
             <div>
-              <p className="font-medium text-ink text-sm">Upgrade to Pro</p>
-              <p className="text-ink-3 text-xs">Unlimited everything for S$5.99/month</p>
+              <p className="font-medium text-ink text-sm">Sarathy Plus</p>
+              <p className="text-ink-3 text-xs">Memory, imports, reports, and deeper planning</p>
             </div>
           </div>
           <ChevronRight className="h-4 w-4 text-ink-3" />

@@ -8,7 +8,7 @@ const jakarta = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Sarathy — Your money companion',
+  title: 'Sarathy - Your money companion',
   description: 'Know if you are financially safe today, in 10 seconds.',
   manifest: '/manifest.json',
   appleWebApp: {

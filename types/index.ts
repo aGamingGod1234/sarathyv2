@@ -13,6 +13,7 @@ export interface Profile {
   money_fear: string | null
   income_timing: string | null
   companion_vibe: 'calm_mentor' | 'hype_friend' | 'no_nonsense_sibling'
+  plan_tier?: 'free' | 'plus' | null
   daily_login_streak: number
   last_login_date: string | null
   total_xp: number
