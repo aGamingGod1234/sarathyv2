@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/clean-next-output.js && prisma generate && next build",
+    "build": "node scripts/clean-next-output.js && node scripts/assert-landing-source.js && prisma generate && next build",
     "postbuild": "node scripts/prepare-standalone.js",
     "start": "node .next/standalone/server.js",
     "remotion": "remotion studio src/remotion/index.ts",
