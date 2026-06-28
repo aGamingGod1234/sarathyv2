@@ -194,10 +194,10 @@ export default function OnboardingPage() {
 
   const [name, setName] = useState('')
   const [selectedUserTypes, setSelectedUserTypes] = useState<string[]>([])
-  const [currentCountry, setCurrentCountry] = useState('Singapore')
+  const [currentCountry, setCurrentCountry] = useState('')
   const [homeCountry, setHomeCountry] = useState('')
   const [primaryCurrency, setPrimaryCurrency] = useState('SGD')
-  const [vibe, setVibe] = useState<VibeId>('calm_mentor')
+  const [vibe, setVibe] = useState<VibeId | ''>('')
   const [responsibleFor, setResponsibleFor] = useState('')
   const [moneyFear, setMoneyFear] = useState('')
   const [incomeTiming, setIncomeTiming] = useState('')
@@ -205,7 +205,7 @@ export default function OnboardingPage() {
   const [moneyType, setMoneyType] = useState('')
   const [hasCommitted, setHasCommitted] = useState(false)
   const [committedAmount, setCommittedAmount] = useState('')
-  const [selectedPlan, setSelectedPlan] = useState<PlanChoice>('free')
+  const [selectedPlan, setSelectedPlan] = useState<PlanChoice | ''>('')
 
   const totalAmount = numericValue(totalMoney)
   const committed = hasCommitted ? numericValue(committedAmount) : 0
@@ -217,25 +217,19 @@ export default function OnboardingPage() {
   const plusPlan = PLAN_DEFINITIONS.plus
 
   const hasName = Boolean(name.trim())
-  const hasLocation = Boolean(currentCountry.trim() && primaryCurrency)
-  const hasIdentity = selectedUserTypes.length > 0
-  const hasVibe = Boolean(vibe)
-  const hasResponsibility = Boolean(responsibleFor)
-  const hasFear = Boolean(moneyFear)
-  const hasIncome = Boolean(incomeTiming)
-  const hasMoneyAmount = totalAmount > 0
-  const hasMoneyProfile = Boolean(moneyType) && (!hasCommitted || committed > 0)
-  const isComplete = hasName
-    && hasLocation
-    && hasIdentity
-    && hasVibe
-    && hasResponsibility
-    && hasFear
-    && hasIncome
-    && hasMoneyAmount
-    && hasMoneyProfile
+  const hasLocation = hasName && Boolean(currentCountry.trim() && primaryCurrency)
+  const hasIdentity = hasLocation && selectedUserTypes.length > 0
+  const hasVibe = hasIdentity && Boolean(vibe)
+  const hasResponsibility = hasVibe && Boolean(responsibleFor)
+  const hasFear = hasResponsibility && Boolean(moneyFear)
+  const hasIncome = hasFear && Boolean(incomeTiming)
+  const hasMoneyAmount = hasIncome && totalAmount > 0
+  const hasMoneyType = hasMoneyAmount && Boolean(moneyType)
+  const hasMoneyProfile = hasMoneyType && (!hasCommitted || committed > 0)
+  const hasPlan = hasMoneyProfile && Boolean(selectedPlan)
+  const isComplete = hasPlan
 
-  const progress = [
+  const progressSteps = [
     hasName,
     hasLocation,
     hasIdentity,
@@ -245,8 +239,10 @@ export default function OnboardingPage() {
     hasIncome,
     hasMoneyAmount,
     hasMoneyProfile,
-    isComplete,
-  ].filter(Boolean).length
+    hasPlan,
+  ]
+  const progress = progressSteps.filter(Boolean).length
+  const progressPercent = Math.min(100, (progress / progressSteps.length) * 100)
 
   const personalPreview = useMemo(() => {
     const person = firstName(name)
@@ -284,7 +280,7 @@ export default function OnboardingPage() {
           home_country: homeCountry.trim() || null,
           user_types: selectedUserTypes,
           primary_currency: primaryCurrency,
-          companion_vibe: vibe,
+          companion_vibe: vibe || 'calm_mentor',
           responsible_for: responsibleFor,
           money_fear: moneyFear,
           income_timing: incomeTiming,
@@ -336,11 +332,11 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-white">
-      <main className="mx-auto min-h-dvh max-w-[480px] bg-cream px-5 pb-8 pt-10">
-        <div className="mb-7">
+    <div className="min-h-dvh bg-white lg:bg-cream">
+      <main className="mx-auto min-h-dvh w-full max-w-[480px] bg-cream px-5 pb-8 pt-10 lg:grid lg:max-w-[1180px] lg:grid-cols-[minmax(320px,0.9fr)_minmax(560px,1.1fr)] lg:gap-12 lg:px-10 lg:py-14 xl:max-w-[1280px]">
+        <div className="mb-7 lg:sticky lg:top-12 lg:mb-0 lg:self-start">
           <p className="text-xs font-semibold uppercase tracking-wide text-saffron">Setup</p>
-          <h1 className="mt-2 font-fraunces text-3xl font-semibold leading-tight text-ink">
+          <h1 className="mt-2 font-fraunces text-3xl font-semibold leading-tight text-ink lg:text-5xl lg:leading-[1.08]">
             {introWords.map((word, index) => (
               <span
                 key={`${word}-${index}`}
@@ -357,12 +353,12 @@ export default function OnboardingPage() {
           <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-cream-3" aria-hidden="true">
             <div
               className="h-full rounded-full bg-saffron transition-all duration-500"
-              style={{ width: `${Math.min(100, progress * 10)}%` }}
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 lg:min-w-0 lg:self-start">
           <ProgressiveBlock show>
             <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-ink-3">
               What should Sarathy call you?
@@ -380,7 +376,7 @@ export default function OnboardingPage() {
             </div>
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={hasName} className="space-y-4">
+          <ProgressiveBlock show={hasName} className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
             <div>
               <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-ink-3">
                 Current country
@@ -418,7 +414,7 @@ export default function OnboardingPage() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-3">
               What sounds most like you?
             </p>
-            <div className="flex flex-col gap-3">
+            <div className="grid gap-3 lg:grid-cols-3">
               {identityOptions.map(option => (
                 <OptionCard
                   key={option.id}
@@ -436,7 +432,7 @@ export default function OnboardingPage() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-3">
               Pick the voice you will actually listen to
             </p>
-            <div className="flex flex-col gap-3">
+            <div className="grid gap-3 lg:grid-cols-3">
               {vibeOptions.map(option => (
                 <OptionCard
                   key={option.id}
@@ -576,7 +572,7 @@ export default function OnboardingPage() {
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-3">
               Choose how deep Sarathy should go
             </p>
-            <div className="flex flex-col gap-3">
+            <div className="grid gap-3 lg:grid-cols-2">
               <button
                 type="button"
                 onClick={() => setSelectedPlan('free')}
@@ -641,7 +637,7 @@ export default function OnboardingPage() {
                 </div>
               </button>
 
-              <div className="rounded-2xl border border-line bg-white p-4">
+              <div className="rounded-2xl border border-line bg-white p-4 lg:col-span-2">
                 <div className="flex items-start gap-3">
                   <Gem className="mt-0.5 h-5 w-5 flex-shrink-0 text-plum" />
                   <p className="text-xs leading-relaxed text-ink-3">
@@ -661,7 +657,7 @@ export default function OnboardingPage() {
               <p className="mt-3 text-sm leading-relaxed text-white/70">{personalPreview}</p>
             </div>
 
-            <div className="mt-5 grid gap-3">
+            <div className="mt-5 grid gap-3 lg:grid-cols-3">
               <div className="card flex items-start gap-3">
                 <MessageCircleHeart className="mt-0.5 h-5 w-5 flex-shrink-0 text-saffron" />
                 <div>
