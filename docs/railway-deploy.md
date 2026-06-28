@@ -4,47 +4,67 @@ This app can run on Railway as a standalone Next.js service.
 
 ## Current Data Architecture
 
-Sarathy currently uses Supabase for both authentication and application data. Deploying the app to Railway does not automatically move auth or tables to Railway Postgres.
+Sarathy now uses Railway Postgres through Prisma for application data and Auth.js/NextAuth for authentication.
 
-Use this setup for the first Railway deployment:
+The runtime no longer depends on Supabase. The former Supabase-shaped client in `lib/supabase.ts` is now a compatibility layer that calls app-owned API routes backed by Prisma.
 
-- Railway hosts the Next.js app.
-- Supabase remains the live auth and database backend.
-- Railway Postgres may be attached for future server-side features, but it is not used by the current code until a deliberate migration or hybrid data layer is added.
+Railway should host:
+
+- The Next.js app service.
+- A PostgreSQL service.
+- A `DATABASE_URL` reference variable from PostgreSQL to the app service.
 
 ## Required Railway Variables
 
 Set these on the Next.js service:
 
 ```text
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+NEXTAUTH_SECRET=generate-a-long-random-secret
+NEXTAUTH_URL=https://your-railway-domain
 GROQ_API_KEY=...
 ```
 
-If you attach Railway Postgres, also set:
+For Google sign-in, also set:
 
 ```text
-DATABASE_URL=${{Postgres.DATABASE_URL}}
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
 ```
 
-`DATABASE_URL` should be added as a Railway reference variable from the Postgres service so it stays in sync when database credentials rotate.
+Google OAuth callback URL:
+
+```text
+https://your-railway-domain/api/auth/callback/google
+```
 
 ## Deploy Steps
 
 1. Create a new Railway project.
 2. Deploy from the GitHub repository `aGamingGod1234/sarathyv2`.
-3. Add the required environment variables above.
-4. Generate a public Railway domain from the service networking settings.
-5. Optional: add a PostgreSQL database service and reference its `DATABASE_URL` in the app service.
+3. Add a PostgreSQL database service.
+4. Add `DATABASE_URL` to the app service as a reference variable from the PostgreSQL service.
+5. Add the required Auth/Groq/Google variables above.
+6. Generate a public Railway domain from the service networking settings.
+7. Redeploy the app service.
 
-## Notes Before Moving Off Supabase
+The app uses `railway.json` to run:
 
-A full Railway Postgres migration is a separate project because the app currently depends on Supabase Auth, browser Supabase clients, row-level access patterns, and many direct table calls. A real migration needs:
+```text
+npm run db:migrate
+```
 
-- Auth replacement or a decision to keep Supabase Auth.
-- Schema migrations for every table currently read through Supabase.
-- Server-side data access routes or an ORM.
-- Row-level authorization rules implemented outside Supabase.
-- Billing tables for paid plan status after Stripe or another provider is added.
+before deployment. That applies the Prisma migrations in `prisma/migrations`.
 
+## Supabase Data Import Notes
+
+The app schema and runtime are migrated off Supabase. Existing Supabase production data still requires a one-time import if there are real users/data to preserve.
+
+Important auth limitation: Supabase does not expose reusable plaintext passwords. If existing users signed in with email/password, they will need to create a new password or use Google after migration. App data can be imported if you provide a Supabase service-role export or database dump.
+
+Recommended import path:
+
+- Export Supabase `profiles`, `budget_entries`, `fixed_spending`, `mood_logs`, `goals`, `chat_messages`, `remittance_logs`, `circles`, `circle_members`, and `circle_moments`.
+- Insert users into Auth.js `User` rows using their Supabase auth IDs where possible.
+- Insert app rows into the matching Railway Postgres tables.
+- Ask email/password users to reset/create a new password in the new system.

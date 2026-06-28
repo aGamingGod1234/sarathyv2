@@ -1,0 +1,233 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String?   @unique
+  emailVerified  DateTime?
+  image          String?
+  password_hash  String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  profile        Profile?
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id            String   @id @default(cuid())
+  sessionToken  String   @unique
+  userId        String
+  expires       DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier  String
+  token       String   @unique
+  expires     DateTime
+
+  @@unique([identifier, token])
+}
+
+model Profile {
+  id                    String    @id
+  name                  String?
+  home_country          String?
+  current_country       String?
+  user_types            String[]  @default([])
+  primary_currency      String    @default("SGD")
+  language_preference   String?
+  planning_amount       Float?
+  total_money           Float?
+  money_type            String?
+  responsible_for       String?
+  money_fear            String?
+  income_timing         String?
+  companion_vibe        String    @default("calm_mentor")
+  plan_tier             String    @default("free")
+  daily_login_streak    Int       @default(0)
+  last_login_date       String?
+  total_xp              Int       @default(0)
+  level                 Int       @default(1)
+  achievements          String[]  @default([])
+  onboarding_complete   Boolean   @default(false)
+  colour_theme          String    @default("saffron")
+  quiet_mode_until      String?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  user User @relation(fields: [id], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model BudgetEntry {
+  id                 String   @id @default(cuid())
+  user_id            String
+  category           String
+  amount             Float
+  original_amount    Float?
+  original_currency  String?
+  description        String?
+  entry_date         String
+  payment_method     String?
+  logged_via         String   @default("manual")
+  created_at         DateTime @default(now())
+
+  @@index([user_id, entry_date])
+  @@map("budget_entries")
+}
+
+model FixedSpending {
+  id          String   @id @default(cuid())
+  user_id     String
+  name        String
+  emoji       String   @default("•")
+  amount      Float
+  frequency   String   @default("monthly")
+  due_day     Int?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  @@index([user_id])
+  @@map("fixed_spending")
+}
+
+model Goal {
+  id              String   @id @default(cuid())
+  user_id         String
+  name            String
+  emoji           String   @default("•")
+  target_amount   Float
+  current_amount  Float    @default(0)
+  deadline        String?
+  user_caption    String?
+  created_at      DateTime @default(now())
+
+  @@index([user_id])
+  @@map("goals")
+}
+
+model MoodLog {
+  id          String   @id @default(cuid())
+  user_id     String
+  mood        String
+  entry_date  String
+  created_at  DateTime @default(now())
+
+  @@unique([user_id, entry_date])
+  @@index([user_id])
+  @@map("mood_logs")
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  user_id     String
+  role        String
+  content     String   @db.Text
+  created_at  DateTime @default(now())
+
+  @@index([user_id, created_at])
+  @@map("chat_messages")
+}
+
+model RemittanceLog {
+  id                    String   @id @default(cuid())
+  user_id               String
+  amount                Float
+  provider              String
+  rate                  Float
+  fee                   Float
+  recipient_gets        Float
+  source_currency       String   @default("SGD")
+  destination_currency  String   @default("INR")
+  created_at            DateTime @default(now())
+
+  @@index([user_id, created_at])
+  @@map("remittance_logs")
+}
+
+model WaitlistEntry {
+  id               String   @id @default(cuid())
+  name             String
+  email            String
+  user_type        String?
+  country_from     String?
+  country_now      String?
+  sends_money_home Boolean  @default(false)
+  money_stress     String?
+  current_tool     String?
+  biggest_pain     String?
+  feature_excited  String?
+  wants_beta       Boolean  @default(false)
+  referral         String?
+  created_at       DateTime @default(now())
+
+  @@index([email])
+  @@map("waitlist")
+}
+
+model Circle {
+  id           String   @id @default(cuid())
+  name         String
+  invite_code  String   @unique @default(dbgenerated("substr(md5(random()::text), 1, 8)"))
+  created_by   String
+  created_at   DateTime @default(now())
+
+  @@index([created_by])
+  @@map("circles")
+}
+
+model CircleMember {
+  id            String   @id @default(cuid())
+  circle_id     String
+  user_id       String
+  display_name  String?
+  created_at    DateTime @default(now())
+
+  @@unique([circle_id, user_id])
+  @@index([user_id])
+  @@map("circle_members")
+}
+
+model CircleMoment {
+  id          String   @id @default(cuid())
+  circle_id   String
+  sender_id   String
+  type        String
+  content     Json
+  reactions   String[] @default([])
+  created_at  DateTime @default(now())
+
+  @@index([circle_id, created_at])
+  @@map("circle_moments")
+}

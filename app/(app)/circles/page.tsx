@@ -37,7 +37,7 @@ export default function CirclesPage() {
 
     if (!memberRows?.length) { setLoading(false); return }
 
-    const ids = memberRows.map(r => r.circle_id)
+    const ids = (memberRows as Array<{ circle_id: string }>).map(r => r.circle_id)
     const { data } = await supabase
       .from('circles')
       .select('*')
