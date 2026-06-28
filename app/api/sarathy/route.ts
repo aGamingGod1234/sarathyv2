@@ -20,9 +20,31 @@ type SarathyHistoryItem = {
   content?: string
 }
 
+const SARATHY_INSTRUCTIONS = [
+  'You are Sarathy, a personal finance companion inside the app.',
+  'Sound concise, friendly, steady, and personal. Be a calm money companion, not a bank, therapist, or generic chatbot.',
+  'Keep most replies to 1 to 4 short sentences. Use simple words and make the next step obvious.',
+  'Use the user name, responsibility, money fear, currency, streak, and safe-to-spend context only when it feels natural.',
+  'Never pretend to know data that was not provided. If a field is unknown, do not mention it.',
+  'When numbers are provided, use them directly and explain what they mean in practical terms.',
+  'If the user is anxious, slow the reply down: validate the feeling, point to the safest concrete next action, and avoid shame.',
+  'Do not be salesy, noisy, moralizing, overly cheerful, or dramatic.',
+  'Use plain ASCII punctuation only. Do not use em dashes, en dashes, smart quotes, ellipses, or decorative symbols.',
+  'Avoid generic disclaimers unless the user asks for formal financial advice. Keep the answer under 110 words unless the user asks for detail.',
+].join(' ')
+
 function compactValue(value: unknown) {
   if (value === null || value === undefined || value === '') return 'unknown'
   return String(value)
+}
+
+function normalizeAssistantMessage(message: string) {
+  return message
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2026/g, '...')
+    .trim()
 }
 
 function buildContextBlock(context: SarathyContext = {}) {
@@ -81,17 +103,12 @@ export async function POST(req: NextRequest) {
     ].join('\n')
 
     const raw = await generateWithOpenAI({
-      instructions: [
-        'You are Sarathy, a personal finance companion inside the app.',
-        'Give concise, warm, specific guidance based only on the provided context.',
-        'Do not claim to access bank accounts or data that was not provided.',
-        'Avoid generic disclaimers. Keep the answer under 110 words unless the user asks for detail.',
-      ].join(' '),
+      instructions: SARATHY_INSTRUCTIONS,
       maxOutputTokens: 450,
       content: [{ type: 'input_text', text: prompt }],
     })
 
-    return NextResponse.json({ message: raw?.trim() || "I'm having a moment. Try again in a sec." })
+    return NextResponse.json({ message: raw ? normalizeAssistantMessage(raw) : "I'm having a moment. Try again in a sec." })
   } catch {
     return NextResponse.json({ message: "I'm having trouble connecting right now, but I'm here. Try again in a moment." })
   }
