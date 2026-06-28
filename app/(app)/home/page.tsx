@@ -137,16 +137,28 @@ const inboxTones: Record<SarathyInboxItem['tone'], { icon: string; dot: string; 
 function InboxRow({
   item,
   onAction,
+  onOpenHref,
   onNavigate,
+  onDismiss,
   compact = false,
 }: {
   item: SarathyInboxItem
   onAction: (item: SarathyInboxItem) => void
+  onOpenHref?: (href: string) => void
   onNavigate?: () => void
+  onDismiss?: (item: SarathyInboxItem) => void
   compact?: boolean
 }) {
   const Icon = inboxIcons[item.icon]
   const tone = inboxTones[item.tone]
+  const handleOpen = () => {
+    if (item.href) {
+      onNavigate?.()
+      onOpenHref?.(item.href)
+      return
+    }
+    onAction(item)
+  }
   const content = (
     <>
       <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border ${tone.border} ${tone.bg} ${tone.icon}`}>
@@ -158,25 +170,41 @@ function InboxRow({
           <p className="truncate text-sm font-semibold text-ink">{item.title}</p>
         </div>
         <p className={`${compact ? 'line-clamp-1' : ''} text-xs leading-relaxed text-ink-3`}>{item.body}</p>
-        {!compact && <p className="mt-2 text-xs font-semibold text-saffron">{item.actionLabel}</p>}
+        {!compact && (
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold text-saffron">{item.actionLabel}</span>
+            {onDismiss && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onDismiss(item)
+                }}
+                className="text-xs font-semibold text-ink-3 underline underline-offset-2"
+              >
+                Mark read
+              </button>
+            )}
+          </div>
+        )}
       </div>
       <ChevronRight className="h-4 w-4 flex-shrink-0 text-ink-3" />
     </>
   )
-  const className = `flex w-full items-center gap-3 rounded-2xl border border-line bg-white px-4 ${compact ? 'py-3' : 'py-4'} text-left transition-colors hover:bg-cream/70`
-
-  if (item.href) {
-    return (
-      <Link href={item.href} onClick={onNavigate} className={className}>
-        {content}
-      </Link>
-    )
-  }
+  const className = `flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-line bg-white px-4 ${compact ? 'py-3' : 'py-4'} text-left transition-colors hover:bg-cream/70`
 
   return (
-    <button type="button" onClick={() => onAction(item)} className={className}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleOpen}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') handleOpen()
+      }}
+      className={className}
+    >
       {content}
-    </button>
+    </div>
   )
 }
 
@@ -193,6 +221,7 @@ export default function HomePage() {
   const [showLog, setShowLog] = useState(false)
   const [showTrust, setShowTrust] = useState(false)
   const [showInbox, setShowInbox] = useState(false)
+  const [dismissedInboxIds, setDismissedInboxIds] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<PLCategory | null>(null)
   const [xpFloat, setXpFloat] = useState<{ show: boolean; x: number; y: number }>({ show: false, x: 0, y: 0 })
 
@@ -234,6 +263,18 @@ export default function HomePage() {
   }
 
   const todayKey = getLocalDateKey()
+  const inboxStorageKey = profile ? `sarathy:readInbox:${profile.id}:${todayKey}` : ''
+
+  useEffect(() => {
+    if (!inboxStorageKey) return
+    try {
+      const stored = window.localStorage.getItem(inboxStorageKey)
+      const parsed = stored ? JSON.parse(stored) : []
+      setDismissedInboxIds(Array.isArray(parsed) ? parsed : [])
+    } catch {
+      setDismissedInboxIds([])
+    }
+  }, [inboxStorageKey])
   const todaySpent = entries
     .filter(e => e.entry_date === todayKey)
     .reduce((sum, e) => sum + e.amount, 0)
@@ -255,20 +296,37 @@ export default function HomePage() {
   const currency = profile.primary_currency || 'SGD'
   const tone = statusTone[safeData.status]
   const firstName = getFirstName(profile)
-  const meterPercent = safeData.safeToSpend <= 0
+  const meterPercent = safeData.dailyAllowance <= 0
     ? todaySpent > 0 ? 100 : 0
-    : Math.min(100, Math.round((todaySpent / safeData.safeToSpend) * 100))
+    : Math.min(100, Math.round((todaySpent / safeData.dailyAllowance) * 100))
   const monthBalance = (profile.planning_amount || 0) - monthTotal
   const monthlyRows = categories
   const personalNote = getHomePersonalization(profile, safeData, categories[0])
   const actionHelpers = getPersonalActionHelpers(profile, safeData, categories[0])
-  const inbox = getSarathyInbox(profile, safeData, entries, fixedSpending, categories)
+  const rawInbox = getSarathyInbox(profile, safeData, entries, fixedSpending, categories)
+  const inbox = {
+    ...rawInbox,
+    items: rawInbox.items.filter(item => !dismissedInboxIds.includes(item.id)),
+    subtitle: rawInbox.items.filter(item => !dismissedInboxIds.includes(item.id)).length
+      ? rawInbox.subtitle
+      : 'No important notes right now.',
+  }
   const inboxPreview = inbox.items.slice(0, 2)
 
   const handleInboxAction = (item: SarathyInboxItem) => {
     setShowInbox(false)
     if (item.action === 'log-expense') setShowLog(true)
     if (item.action === 'open-safety') setShowTrust(true)
+  }
+
+  const handleInboxDismiss = (item: SarathyInboxItem) => {
+    setDismissedInboxIds(current => {
+      const next = current.includes(item.id) ? current : [...current, item.id]
+      if (inboxStorageKey) {
+        window.localStorage.setItem(inboxStorageKey, JSON.stringify(next))
+      }
+      return next
+    })
   }
 
   return (
@@ -354,10 +412,16 @@ export default function HomePage() {
                 key={item.id}
                 item={item}
                 onAction={handleInboxAction}
+                onOpenHref={(href) => router.push(href)}
                 onNavigate={() => setShowInbox(false)}
                 compact
               />
             ))}
+            {inboxPreview.length === 0 && (
+              <div className="rounded-2xl border border-line bg-white px-4 py-4 text-sm text-ink-3">
+                No important notes right now.
+              </div>
+            )}
           </div>
         </section>
 
@@ -369,7 +433,7 @@ export default function HomePage() {
                 <p className="mt-1 text-2xl font-semibold text-plum">
                   {formatCurrency(todaySpent, currency)}
                   <span className="ml-1 text-base font-medium text-ink-3">
-                    of {formatCurrency(safeData.safeToSpend, currency)}
+                    of {formatCurrency(safeData.dailyAllowance, currency)}
                   </span>
                 </p>
               </div>
@@ -537,9 +601,16 @@ export default function HomePage() {
                     key={item.id}
                     item={item}
                     onAction={handleInboxAction}
+                    onOpenHref={(href) => router.push(href)}
                     onNavigate={() => setShowInbox(false)}
+                    onDismiss={handleInboxDismiss}
                   />
                 ))}
+                {inbox.items.length === 0 && (
+                  <div className="rounded-2xl border border-line bg-white px-4 py-6 text-center text-sm text-ink-3">
+                    No important notes right now.
+                  </div>
+                )}
               </div>
               <div className="mt-4 rounded-2xl bg-cream px-4 py-3">
                 <p className="text-xs leading-relaxed text-ink-3">

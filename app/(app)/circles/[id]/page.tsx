@@ -161,9 +161,9 @@ export default function CirclePage() {
   )
 
   return (
-    <div className="min-h-dvh bg-cream flex flex-col">
+    <div className="min-h-dvh bg-cream flex flex-col md:pl-32 md:pr-8 lg:pl-36">
       {/* Header */}
-      <div className="px-5 pt-12 pb-3 bg-cream border-b border-cream-3">
+      <div className="px-5 pt-12 pb-3 bg-cream border-b border-cream-3 md:px-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => router.push('/circles')} className="text-ink-3 text-xl">←</button>
@@ -180,7 +180,7 @@ export default function CirclePage() {
       </div>
 
       {/* Moments feed */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 pb-40">
+      <div className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto px-4 py-4 pb-40 md:px-8">
         {moments.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-3xl mb-3">🌸</p>
@@ -197,7 +197,7 @@ export default function CirclePage() {
       </div>
 
       {/* Share button */}
-      <div className="fixed bottom-16 left-0 right-0 px-5 pb-2">
+      <div className="fixed bottom-16 left-0 right-0 px-5 pb-2 md:bottom-6 md:left-32 md:right-8 md:mx-auto md:max-w-5xl">
         <button onClick={() => setShowShare(true)} className="btn-primary">
           Share a moment 🌸
         </button>

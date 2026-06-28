@@ -252,6 +252,40 @@
     color: #1C0A00;
   }
 
+  .markdown-content {
+    white-space: normal;
+  }
+
+  .markdown-content p {
+    margin: 0;
+  }
+
+  .markdown-content p + p,
+  .markdown-content ul + p,
+  .markdown-content p + ul {
+    margin-top: 8px;
+  }
+
+  .markdown-content ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+
+  .markdown-content li {
+    margin: 2px 0;
+  }
+
+  .markdown-content strong {
+    font-weight: 700;
+  }
+
+  .markdown-content a {
+    color: #C45A0A;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .user-bubble {
     background: #F97316;
     color: white;

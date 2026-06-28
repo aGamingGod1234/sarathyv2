@@ -42,7 +42,8 @@ export default function StoryPage() {
   const intro = getStoryIntro(profile)
 
   return (
-    <div className="min-h-dvh bg-cream pb-24 px-5 pt-12">
+    <div className="min-h-dvh bg-cream px-5 pb-24 pt-12 md:pb-12 md:pl-32 md:pr-8 lg:pl-36">
+      <main className="mx-auto w-full max-w-5xl">
       <div className="mb-6">
         <h1 className="font-fraunces text-2xl font-semibold text-ink capitalize">{intro.title}</h1>
         <p className="text-ink-3 text-sm mt-1">{intro.subtitle}</p>
@@ -111,6 +112,7 @@ export default function StoryPage() {
           Come back then.
         </p>
       </div>
+      </main>
 
       <TabBar active="story" />
     </div>

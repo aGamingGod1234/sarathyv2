@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { generateWithOpenAI, isOpenAIConfigured, streamWithOpenAI } from '@/lib/ai'
+import { OPENAI_MODEL, generateWithOpenAI, isOpenAIConfigured, streamWithOpenAI } from '@/lib/ai'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { calculateSafeToSpend, formatCurrency, getMonthEntries, groupEntriesByCategory } from '@/lib/calculations'
@@ -20,21 +20,20 @@ type SarathyHistoryItem = {
   content?: string
 }
 
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.5'
-
 const SARATHY_INSTRUCTIONS = [
   'You are Sarathy, a personal finance companion inside the app.',
-  'Sound concise, friendly, steady, and personal. Be a calm money companion, not a bank, therapist, or generic chatbot.',
-  'Keep most replies to 1 to 4 short sentences. Use simple words and make the next step obvious.',
+  'Answer directly and precisely. Default to 1 or 2 short sentences.',
+  'Use markdown only when it improves clarity, such as bold numbers or short bullet lists.',
+  'Sound steady and personal, not like a bank, therapist, or generic chatbot.',
   'Use the user name, responsibility, money fear, currency, streak, and safe-to-spend context only when it feels natural.',
   'Never pretend to know data that was not provided. If a field is unknown, do not mention it.',
   'When numbers are provided, use them directly and explain what they mean in practical terms.',
   'If product price context is provided, use it before making an affordability call. Mention the source label briefly.',
   'If the user asks about a product without a price and no reliable price is available, ask for a link or exact price instead of guessing.',
-  'If the user is anxious, slow the reply down: validate the feeling, point to the safest concrete next action, and avoid shame.',
-  'Do not be salesy, noisy, moralizing, overly cheerful, or dramatic.',
+  'If the user is anxious, validate once, then give the safest concrete next action.',
+  'Do not be salesy, noisy, moralizing, overly cheerful, dramatic, or repetitive.',
   'Use plain ASCII punctuation only. Do not use em dashes, en dashes, smart quotes, ellipses, or decorative symbols.',
-  'Avoid generic disclaimers unless the user asks for formal financial advice. Keep the answer under 120 words unless the user asks for detail.',
+  'Avoid generic disclaimers unless the user asks for formal financial advice. Keep the answer under 80 words unless the user asks for detail.',
 ].join(' ')
 
 const WEB_SEARCH_TOOL = [{ type: 'web_search_preview' as const, search_context_size: 'medium' as const }]
@@ -205,7 +204,7 @@ async function generateReply({
   try {
     return await generateWithOpenAI({
       instructions: SARATHY_INSTRUCTIONS,
-      maxOutputTokens: 550,
+      maxOutputTokens: 320,
       tools: useWebSearch ? WEB_SEARCH_TOOL : undefined,
       content: [{ type: 'input_text', text: prompt }],
     })
@@ -220,7 +219,7 @@ async function generateReply({
 
     return generateWithOpenAI({
       instructions: SARATHY_INSTRUCTIONS,
-      maxOutputTokens: 450,
+      maxOutputTokens: 260,
       content: [{ type: 'input_text', text: fallbackPrompt }],
     })
   }
@@ -325,7 +324,7 @@ export async function POST(req: NextRequest) {
             try {
               for await (const delta of streamWithOpenAI({
                 instructions: SARATHY_INSTRUCTIONS,
-                maxOutputTokens: 550,
+                maxOutputTokens: 320,
                 tools: useWebSearch ? WEB_SEARCH_TOOL : undefined,
                 content: [{ type: 'input_text', text: prompt }],
               })) {

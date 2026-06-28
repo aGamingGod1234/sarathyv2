@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Chrome, Mail, RotateCw, ShieldCheck } from 'lucide-react'
+import { Chrome, Eye, EyeOff, Mail, RotateCw, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 type SignupStage = 'form' | 'verify'
@@ -19,6 +19,8 @@ export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [otp, setOtp] = useState('')
   const [cooldown, setCooldown] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -64,7 +66,7 @@ export default function SignupPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp }),
       })
-      const payload = await res.json()
+      const payload = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(payload?.error || 'Could not verify email.')
 
       const login = await supabase.auth.signInWithPassword({ email, password })
@@ -88,7 +90,7 @@ export default function SignupPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-      const payload = await res.json()
+      const payload = await res.json().catch(() => ({}))
       if (!res.ok) {
         if (payload?.cooldownSeconds) setCooldown(payload.cooldownSeconds)
         throw new Error(payload?.error || 'Could not send another code.')
@@ -160,30 +162,52 @@ export default function SignupPage() {
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-ink-3">Choose a password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="at least 8 characters"
-                  className="input-field"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="at least 8 characters"
+                    className="input-field pr-12"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(value => !value)}
+                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-ink-3"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-ink-3">Confirm your password</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="repeat your password"
-                  className="input-field"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="repeat your password"
+                    className="input-field pr-12"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(value => !value)}
+                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-ink-3"
+                    aria-label={showConfirmPassword ? 'Hide confirmed password' : 'Show confirmed password'}
+                    aria-pressed={showConfirmPassword}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -226,6 +250,11 @@ export default function SignupPage() {
           {error && (
             <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-danger" role="alert" aria-live="polite">
               {error}
+              {error.toLowerCase().includes('already exists') && (
+                <Link href="/login" className="mt-2 block font-semibold text-saffron">
+                  Go to sign in
+                </Link>
+              )}
             </div>
           )}
 

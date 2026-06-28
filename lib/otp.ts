@@ -136,7 +136,12 @@ export async function issueOtp({ email, purpose }: IssueOtpInput) {
     },
   })
 
-  await sendOtpEmail(normalizedEmail, otp, purpose)
+  try {
+    await sendOtpEmail(normalizedEmail, otp, purpose)
+  } catch (err) {
+    await prisma.verificationToken.deleteMany({ where: { identifier } })
+    throw err
+  }
 
   return {
     expiresAt: expires.toISOString(),

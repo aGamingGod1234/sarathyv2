@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { isValidEmail, issueOtp, normalizeEmail, OtpCooldownError } from '@/lib/otp'
 
@@ -25,7 +26,14 @@ export async function POST(req: Request) {
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing?.emailVerified) {
-      return NextResponse.json({ error: 'An account already exists for this email.' }, { status: 409 })
+      return NextResponse.json(
+        {
+          error: 'An account already exists for this email. Sign in instead, or use forgot password if you need a new password.',
+          code: 'ACCOUNT_EXISTS',
+          action: '/login',
+        },
+        { status: 409 },
+      )
     }
 
     const password_hash = await bcrypt.hash(password, 12)
@@ -72,12 +80,39 @@ export async function POST(req: Request) {
   } catch (err) {
     if (err instanceof OtpCooldownError) {
       return NextResponse.json(
-        { error: err.message, cooldownSeconds: err.cooldownSeconds },
+        { error: err.message, code: 'OTP_COOLDOWN', cooldownSeconds: err.cooldownSeconds },
         { status: 429 },
       )
     }
 
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return NextResponse.json(
+        {
+          error: 'An account already exists for this email. Sign in instead, or use forgot password if you need a new password.',
+          code: 'ACCOUNT_EXISTS',
+          action: '/login',
+        },
+        { status: 409 },
+      )
+    }
+
+    if (err instanceof Error && err.message.includes('verification code')) {
+      return NextResponse.json(
+        {
+          error: 'Could not send the verification code. Check the email address and try again in a minute.',
+          code: 'OTP_DELIVERY_FAILED',
+        },
+        { status: 503 },
+      )
+    }
+
     console.error('Signup failed:', err)
-    return NextResponse.json({ error: 'Could not create account.' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Could not create account. Refresh and try again. If this email was used before, go to sign in or forgot password.',
+        code: 'SIGNUP_FAILED',
+      },
+      { status: 500 },
+    )
   }
 }

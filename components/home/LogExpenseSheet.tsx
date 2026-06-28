@@ -50,6 +50,8 @@ const MOODS: Array<{ icon: LucideIcon; label: string; value: string; tone: strin
   { icon: Frown, label: 'Stressed', value: 'stressed', tone: 'text-danger' },
 ]
 
+const MAX_PERSONAL_AMOUNT = 10_000_000
+
 export default function LogExpenseSheet({ profile, onClose, onLogged }: Props) {
   const supabase = createClient()
   const profileCurrency = profile.primary_currency || 'SGD'
@@ -66,7 +68,14 @@ export default function LogExpenseSheet({ profile, onClose, onLogged }: Props) {
   const selectedCurrency = CURRENCIES.find(c => c.code === currency) || CURRENCIES[0]
   const profileCurrencyData = CURRENCIES.find(c => c.code === profileCurrency) || CURRENCIES[0]
   const amountValue = Number(amount)
-  const canSave = Number.isFinite(amountValue) && amountValue > 0
+  const amountValidation = !amount
+    ? ''
+    : !Number.isFinite(amountValue) || amountValue <= 0
+      ? 'Enter an amount greater than 0.'
+      : amountValue > MAX_PERSONAL_AMOUNT
+        ? 'That amount is too high for a personal budget entry. Enter a smaller amount.'
+        : ''
+  const canSave = !amountValidation && Number.isFinite(amountValue) && amountValue > 0
 
   const handleSave = async (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!canSave) return
@@ -202,6 +211,11 @@ export default function LogExpenseSheet({ profile, onClose, onLogged }: Props) {
           {error && (
             <div className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-danger" role="alert">
               {error}
+            </div>
+          )}
+          {amountValidation && !error && (
+            <div className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-danger" role="alert">
+              {amountValidation}
             </div>
           )}
         </div>

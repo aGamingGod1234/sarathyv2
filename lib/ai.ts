@@ -29,8 +29,9 @@ type GenerateOptions = {
 }
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.5'
-const OPENAI_REASONING_EFFORT = process.env.OPENAI_REASONING_EFFORT || 'low'
+export const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5.5'
+export const OPENAI_REASONING_EFFORT = process.env.OPENAI_REASONING_EFFORT || 'low'
+export const OPENAI_TEXT_VERBOSITY = process.env.OPENAI_TEXT_VERBOSITY || 'low'
 
 function getOutputText(data: OpenAIResponse) {
   if (data.output_text) return data.output_text
@@ -56,6 +57,9 @@ function buildOpenAIBody({ content, instructions, maxOutputTokens, model, tools 
     instructions,
     reasoning: {
       effort: OPENAI_REASONING_EFFORT,
+    },
+    text: {
+      verbosity: OPENAI_TEXT_VERBOSITY,
     },
     max_output_tokens: maxOutputTokens,
     ...(tools?.length ? { tools, tool_choice: 'auto' } : {}),

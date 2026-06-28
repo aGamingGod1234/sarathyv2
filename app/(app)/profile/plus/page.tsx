@@ -9,18 +9,12 @@ import {
   ChevronRight,
   Crown,
   Gem,
-  MessageCircleHeart,
-  ReceiptText,
-  ShieldCheck,
-  Sparkles,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { PLAN_DEFINITIONS, PLAN_FEATURES, getPlanDefinition } from '@/lib/plans'
 import { getFirstName } from '@/lib/personalization'
 import type { Profile } from '@/types'
 import TabBar from '@/components/ui/TabBar'
-
-const featureIcons = [MessageCircleHeart, ReceiptText, Sparkles, Gem, ShieldCheck]
 
 export default function ProfilePlusPage() {
   const router = useRouter()
@@ -163,33 +157,31 @@ export default function ProfilePlusPage() {
             </p>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {PLAN_FEATURES.map((feature, index) => {
-              const Icon = featureIcons[index] || Sparkles
-              return (
-                <div key={feature.id} className="card">
-                  <div className="mb-3 flex items-start gap-3">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-saffron-soft text-saffron">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-ink">{feature.title}</p>
-                      <p className="mt-1 text-xs leading-relaxed text-ink-3">{feature.description}</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-cream p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-3">Starter</p>
-                      <p className="mt-1 text-xs leading-relaxed text-ink">{feature.free}</p>
-                    </div>
-                    <div className="rounded-xl bg-plum p-3 text-white">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-white/50">Plus</p>
-                      <p className="mt-1 text-xs leading-relaxed text-white/80">{feature.plus}</p>
-                    </div>
-                  </div>
+          <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_8px_24px_rgba(30,10,46,0.04)]">
+            <div className="hidden grid-cols-[1.2fr_0.9fr_0.9fr] gap-4 border-b border-line bg-cream px-5 py-3 text-xs font-semibold uppercase tracking-wide text-ink-3 md:grid">
+              <span>Feature</span>
+              <span>Starter</span>
+              <span>Plus</span>
+            </div>
+            {PLAN_FEATURES.map(feature => (
+              <div
+                key={feature.id}
+                className="grid gap-3 border-b border-cream px-5 py-4 last:border-0 md:grid-cols-[1.2fr_0.9fr_0.9fr] md:gap-4"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-ink">{feature.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-ink-3">{feature.description}</p>
                 </div>
-              )
-            })}
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink-3 md:hidden">Starter</p>
+                  <p className="text-sm leading-relaxed text-ink">{feature.free}</p>
+                </div>
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-ink-3 md:hidden">Plus</p>
+                  <p className="text-sm font-medium leading-relaxed text-plum">{feature.plus}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 

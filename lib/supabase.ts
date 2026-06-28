@@ -11,6 +11,56 @@ type DbResponse<T = any> = {
   error: { message: string } | null
 }
 
+type ApiError = {
+  message: string
+  status?: number
+  code?: string
+  cooldownSeconds?: number
+}
+
+async function readJsonResponse(res: Response) {
+  const text = await res.text().catch(() => '')
+  if (!text) return {}
+
+  try {
+    return JSON.parse(text)
+  } catch {
+    return {
+      error: res.ok
+        ? null
+        : 'The server returned an unreadable response. Please refresh and try again.',
+    }
+  }
+}
+
+function getApiError(payload: any, fallback: string, status?: number): ApiError {
+  const rawError = payload?.error
+  const message = typeof rawError === 'string'
+    ? rawError
+    : typeof rawError?.message === 'string'
+      ? rawError.message
+      : typeof payload?.message === 'string'
+        ? payload.message
+        : fallback
+
+  return {
+    message,
+    status,
+    code: payload?.code,
+    cooldownSeconds: payload?.cooldownSeconds,
+  }
+}
+
+function friendlySignInMessage(error: string | null | undefined) {
+  if (!error) return null
+  if (error === 'CredentialsSignin') return 'Invalid email or password.'
+  if (error.includes('verify your email')) return error
+  if (error === 'Callback' || error === 'Configuration') {
+    return 'Sign in is unavailable right now. Please try again in a minute.'
+  }
+  return 'Sign in failed. Check your details and try again.'
+}
+
 class QueryBuilder<T = any> implements PromiseLike<DbResponse<T>> {
   private operation: 'select' | 'insert' | 'update' | 'delete' | 'upsert' = 'select'
   private values: any
@@ -106,9 +156,9 @@ class QueryBuilder<T = any> implements PromiseLike<DbResponse<T>> {
         }),
       })
 
-      const payload = await res.json()
+      const payload = await readJsonResponse(res)
       if (!res.ok) {
-        return { data: null, error: { message: payload?.error?.message || 'Request failed' } }
+        return { data: null, error: { message: getApiError(payload, 'Request failed', res.status).message } }
       }
       return payload
     } catch (err) {
@@ -155,11 +205,7 @@ export function createClient() {
           email,
           password,
         })
-        const message = result?.error
-          ? result.error === 'CredentialsSignin'
-            ? 'Invalid email or password.'
-            : result.error
-          : null
+        const message = friendlySignInMessage(result?.error)
         return {
           data: result?.ok ? { user: result } : null,
           error: message ? { message } : null,
@@ -179,9 +225,9 @@ export function createClient() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, confirmPassword }),
         })
-        const payload = await res.json()
+        const payload = await readJsonResponse(res)
         if (!res.ok) {
-          return { data: null, error: { message: payload?.error || 'Could not create account.' } }
+          return { data: null, error: getApiError(payload, 'Could not create account.', res.status) }
         }
         return {
           data: payload,

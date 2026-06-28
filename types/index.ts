@@ -95,6 +95,10 @@ export interface SafeToSpendData {
   planAmount: number
   fixedLeft: number
   alreadySpent: number
+  spentBeforeToday: number
+  todaySpent: number
+  todayRemaining: number
+  dailyAllowance: number
   buffer: number
   freeToUse: number
   daysLeft: number

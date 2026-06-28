@@ -13,6 +13,7 @@ export default function TrustLayerModal({ safeData, onClose }: Props) {
     { label: 'Your plan this month', value: safeData.planAmount, sign: '+', color: 'text-safe' },
     { label: 'Bills still due', value: safeData.fixedLeft, sign: '-', color: 'text-danger' },
     { label: 'Already spent', value: safeData.alreadySpent, sign: '-', color: 'text-danger' },
+    { label: 'Spent today', value: safeData.todaySpent, sign: '-', color: 'text-danger' },
     { label: 'Safety buffer (10%)', value: safeData.buffer, sign: '-', color: 'text-warning' },
     { label: 'Free to use', value: safeData.freeToUse, sign: '=', color: 'text-ink font-semibold' },
   ]
@@ -56,17 +57,19 @@ export default function TrustLayerModal({ safeData, onClose }: Props) {
           ))}
         </div>
 
-        <div className="rounded-2xl border border-safe/20 bg-mint p-4">
-          <div className="mb-2 flex items-center gap-2 text-safe">
+        <div className={`rounded-2xl border p-4 ${safeData.status === 'danger' ? 'border-danger/20 bg-rose-50' : 'border-safe/20 bg-mint'}`}>
+          <div className={`mb-2 flex items-center gap-2 ${safeData.status === 'danger' ? 'text-danger' : 'text-safe'}`}>
             <CheckCircle2 className="h-4 w-4" />
             <p className="text-xs font-semibold uppercase tracking-wide">
-              Spread over {safeData.daysLeft} days remaining
+              Today's remaining safe amount
             </p>
           </div>
-          <p className="font-fraunces text-3xl font-semibold text-safe">
-            {formatCurrency(safeData.safeToSpend, safeData.currency)} / day
+          <p className={`font-fraunces text-3xl font-semibold ${safeData.status === 'danger' ? 'text-danger' : 'text-safe'}`}>
+            {formatCurrency(safeData.safeToSpend, safeData.currency)}
           </p>
-          <p className="mt-1 text-xs text-ink-3">This is your safe-to-spend number for today.</p>
+          <p className="mt-1 text-xs text-ink-3">
+            Started from a {formatCurrency(safeData.dailyAllowance, safeData.currency)} daily allowance across {safeData.daysLeft} days.
+          </p>
         </div>
 
         <button type="button" className="btn-primary mt-4" onClick={onClose}>Got it</button>

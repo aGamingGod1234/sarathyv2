@@ -160,7 +160,7 @@ export function getSarathyQuickChips(profile: MaybeProfile) {
   const vibe = profile?.companion_vibe
 
   const chips = [
-    'Can I afford this today?',
+    'Can I afford a purchase today?',
     'Check a product price in SGD',
     `What should I protect for ${responsibility}?`,
     `Help me handle ${fear}`,
@@ -244,7 +244,6 @@ export function getSarathyInbox(
   categories: PLCategory[],
 ) {
   const currency = safeData.currency || profile?.primary_currency || 'SGD'
-  const firstName = getFirstName(profile)
   const today = getLocalDateKey()
   const todayEntries = entries.filter(entry => entry.entry_date === today)
   const topCategory = categories[0]
@@ -275,7 +274,9 @@ export function getSarathyInbox(
     items.push({
       id: 'safety-danger',
       title: 'I would check before spending today',
-      body: `${formatCurrency(safeData.safeToSpend, currency)} is marked safe. A 20-second check can keep the plan steady.`,
+      body: todaySpent > safeData.dailyAllowance
+        ? `${formatCurrency(todaySpent, currency)} is already logged today. Pause non-essential spending and check the plan.`
+        : `${formatCurrency(safeData.safeToSpend, currency)} is marked safe. A 20-second check can keep the plan steady.`,
       actionLabel: 'Open money check',
       href: '/check',
       icon: 'alert',
@@ -291,49 +292,17 @@ export function getSarathyInbox(
       icon: 'clock',
       tone: 'warning',
     })
-  } else {
-    items.push({
-      id: 'safety-good',
-      title: 'You have room, but keep the signal clean',
-      body: `${formatCurrency(safeData.safeToSpend, currency)} is safe today. Logging one small thing keeps tomorrow accurate.`,
-      actionLabel: 'Log a moment',
-      action: 'log-expense',
-      icon: 'check',
-      tone: 'safe',
-    })
   }
 
-  if (todayEntries.length === 0) {
-    items.push({
-      id: 'empty-today',
-      title: 'No money moment logged today',
-      body: `One quick log is enough. It keeps ${hasPersonalName(profile) ? `${firstName}'s` : 'your'} daily number honest without turning this into admin.`,
-      actionLabel: 'Log one thing',
-      action: 'log-expense',
-      icon: 'message',
-      tone: 'saffron',
-    })
-  } else {
-    items.push({
-      id: 'today-logged',
-      title: `${todayEntries.length} thing${todayEntries.length === 1 ? '' : 's'} logged today`,
-      body: `${formatCurrency(todaySpent, currency)} is already in the picture. Your daily number is learning from real behavior.`,
-      actionLabel: 'See the pattern',
-      href: '/insights',
-      icon: 'sparkles',
-      tone: 'plum',
-    })
-  }
-
-  if (topCategory && topCategory.percentage >= 35) {
+  if (topCategory && topCategory.percentage >= 55) {
     items.push({
       id: 'top-category',
       title: `${topCategory.category} is leading this month`,
-      body: `${topCategory.percentage}% of spending is here. That might be totally fine, but it is worth one look.`,
+      body: `${topCategory.percentage}% of spending is here. That is high enough to review before the next purchase.`,
       actionLabel: 'Open insight',
       href: '/insights',
       icon: 'wallet',
-      tone: topCategory.percentage >= 55 ? 'warning' : 'plum',
+      tone: 'warning',
     })
   }
 
@@ -349,49 +318,11 @@ export function getSarathyInbox(
     })
   }
 
-  const hasHomeSupportContext =
-    Boolean(profile?.home_country?.trim()) ||
-    ['parent', 'family', 'home', 'partner', 'spouse', 'child', 'kid'].some(value =>
-      cleanValue(profile?.responsible_for).toLowerCase().includes(value)
-    )
-
-  if (hasHomeSupportContext) {
-    items.push({
-      id: 'home-support',
-      title: 'Home support stays in the plan',
-      body: `Sarathy is keeping ${getResponsibilityPhrase(profile)} in view before any bigger decision.`,
-      actionLabel: 'Plan transfer',
-      href: '/remittance',
-      icon: 'home',
-      tone: 'plum',
-    })
-  }
-
-  if ((profile?.daily_login_streak || 0) >= 2) {
-    items.push({
-      id: 'streak',
-      title: `Day ${profile?.daily_login_streak} of checking in`,
-      body: 'That habit matters. The app gets more useful when you keep the loop small and consistent.',
-      actionLabel: 'View story',
-      href: '/story',
-      icon: 'target',
-      tone: 'safe',
-    })
-  }
-
-  items.push({
-    id: 'talk',
-    title: 'I can talk through the messy part',
-    body: `If a purchase, family ask, or guilty feeling is on your mind, start there instead of staring at numbers.`,
-    actionLabel: 'Open Sarathy',
-    href: '/sarathy',
-    icon: 'message',
-    tone: 'saffron',
-  })
-
   return {
     title: 'Sarathy inbox',
-    subtitle: 'No push alerts. Just useful notes waiting when you open the app.',
+    subtitle: items.length
+      ? 'Important notes only. Mark them read when handled.'
+      : 'No important notes right now.',
     items,
   }
 }

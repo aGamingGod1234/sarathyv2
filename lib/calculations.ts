@@ -1,5 +1,5 @@
 import { BudgetEntry, FixedSpending, Profile, SafeToSpendData, SafetyStatus, PLCategory } from '@/types'
-import { compareDateKeysDesc, isDateKeyInCurrentMonth } from './dates'
+import { compareDateKeysDesc, getLocalDateKey, isDateKeyInCurrentMonth } from './dates'
 
 function ordinal(day: number) {
   const suffix = day % 10 === 1 && day % 100 !== 11
@@ -34,25 +34,35 @@ export function calculateSafeToSpend(
   // Already spent this month
   const currentMonthEntries = entries.filter(e => isDateKeyInCurrentMonth(e.entry_date, now))
   const alreadySpent = currentMonthEntries.reduce((sum, e) => sum + e.amount, 0)
+  const todayKey = getLocalDateKey(now)
+  const todaySpent = currentMonthEntries
+    .filter(e => e.entry_date === todayKey)
+    .reduce((sum, e) => sum + e.amount, 0)
+  const spentBeforeToday = Math.max(0, alreadySpent - todaySpent)
 
   // 10% safety buffer
   const buffer = planAmount * 0.10
 
-  // Free money
+  // Free money. The headline safe number is the remaining amount for today.
+  const freeBeforeToday = planAmount - fixedLeft - spentBeforeToday - buffer
   const freeToUse = planAmount - fixedLeft - alreadySpent - buffer
-  const safeToSpend = Math.max(0, Math.round(freeToUse / Math.max(daysLeft, 1)))
+  const dailyAllowance = Math.max(0, Math.floor(freeBeforeToday / Math.max(daysLeft, 1)))
+  const todayRemaining = Math.max(0, Math.floor(dailyAllowance - todaySpent))
+  const safeToSpend = todayRemaining
 
   // Safety status
   const dailyIdeal = planAmount / daysInMonth
   let status: SafetyStatus = 'safe'
-  if (safeToSpend <= 0) status = 'danger'
-  else if (safeToSpend < dailyIdeal * 0.5) status = 'tight'
+  if (planAmount <= 0 || freeToUse <= 0 || todaySpent > dailyAllowance) status = 'danger'
+  else if (todayRemaining < dailyAllowance * 0.35 || dailyAllowance < dailyIdeal * 0.5) status = 'tight'
 
   // Safety line in plain language
   let safetyLine = ''
   const monthEnd = ordinal(daysInMonth)
   if (status === 'safe') {
     safetyLine = `You're safe through the ${monthEnd}`
+  } else if (todaySpent > dailyAllowance) {
+    safetyLine = `Today's safe amount is used up`
   } else if (status === 'tight') {
     safetyLine = `A bit tight - watch spending through the ${monthEnd}`
   } else {
@@ -66,6 +76,10 @@ export function calculateSafeToSpend(
     planAmount,
     fixedLeft,
     alreadySpent,
+    spentBeforeToday,
+    todaySpent,
+    todayRemaining,
+    dailyAllowance,
     buffer,
     freeToUse: Math.max(0, freeToUse),
     daysLeft,

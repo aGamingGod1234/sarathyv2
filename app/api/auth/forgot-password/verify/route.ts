@@ -14,10 +14,10 @@ export async function POST(req: Request) {
 
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, password_hash: true },
+      select: { id: true, emailVerified: true },
     })
 
-    if (!user?.password_hash) {
+    if (!user?.emailVerified) {
       return NextResponse.json({ error: 'Invalid reset code.' }, { status: 400 })
     }
 

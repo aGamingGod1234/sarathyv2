@@ -47,6 +47,8 @@ const userOwnedTables = new Set<DbRequest['table']>([
   'remittance_logs',
 ])
 
+const MAX_PERSONAL_MONEY_AMOUNT = 10_000_000
+
 function json(data: unknown, error: string | null = null, status = 200) {
   return NextResponse.json({ data, error: error ? { message: error } : null }, { status })
 }
@@ -90,6 +92,50 @@ function buildWhere(filters: Filter[] = []) {
 }
 
 function normalizeValues(table: DbRequest['table'], values: any, userId: string | null) {
+  const normalizeMoney = (raw: unknown, label: string, options: { allowZero?: boolean; nullable?: boolean } = {}) => {
+    if ((raw === null || raw === undefined || raw === '') && options.nullable) return null
+    const value = Number(raw)
+    if (!Number.isFinite(value)) throw new Error(`${label} must be a valid number.`)
+    if (options.allowZero ? value < 0 : value <= 0) {
+      throw new Error(`${label} must be ${options.allowZero ? '0 or more' : 'greater than 0'}.`)
+    }
+    if (value > MAX_PERSONAL_MONEY_AMOUNT) {
+      throw new Error(`${label} is too high for a personal budget. Enter a value below ${MAX_PERSONAL_MONEY_AMOUNT.toLocaleString('en-SG')}.`)
+    }
+    return Math.round(value * 100) / 100
+  }
+
+  const validateOne = (value: Record<string, any>) => {
+    if (table === 'profiles') {
+      if ('planning_amount' in value) {
+        value.planning_amount = normalizeMoney(value.planning_amount, 'Monthly budget or income', { allowZero: true, nullable: true })
+      }
+      if ('total_money' in value) {
+        value.total_money = normalizeMoney(value.total_money, 'Total money', { allowZero: true, nullable: true })
+      }
+    }
+
+    if (table === 'budget_entries') {
+      if ('amount' in value) value.amount = normalizeMoney(value.amount, 'Expense amount')
+      if ('original_amount' in value && value.original_amount !== null && value.original_amount !== undefined) {
+        value.original_amount = normalizeMoney(value.original_amount, 'Original expense amount')
+      }
+    }
+
+    if (table === 'fixed_spending') {
+      if ('amount' in value) value.amount = normalizeMoney(value.amount, 'Fixed cost amount')
+      if ('due_day' in value && value.due_day !== null && value.due_day !== undefined && value.due_day !== '') {
+        const dueDay = Number(value.due_day)
+        if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
+          throw new Error('Due day must be between 1 and 31.')
+        }
+        value.due_day = dueDay
+      }
+    }
+
+    return value
+  }
+
   const normalizeOne = (value: Record<string, any>) => {
     const next = { ...value }
     if (userId && userOwnedTables.has(table)) next.user_id = userId
@@ -97,7 +143,7 @@ function normalizeValues(table: DbRequest['table'], values: any, userId: string 
     if (userId && table === 'circles') next.created_by = userId
     if (userId && table === 'circle_members') next.user_id = userId
     if (userId && table === 'circle_moments') next.sender_id = next.sender_id || userId
-    return next
+    return validateOne(next)
   }
 
   return Array.isArray(values) ? values.map(normalizeOne) : normalizeOne(values || {})

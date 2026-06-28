@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { Fragment, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, SendHorizontal, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
@@ -14,7 +14,82 @@ import {
 import { getCurrentMonthDateRange } from '@/lib/dates'
 import TabBar from '@/components/ui/TabBar'
 
-const FALLBACK_CHIPS = ['Check a product price in SGD', 'Can I afford this today?', 'What can I spend without stress?', 'Ground me about money']
+const FALLBACK_CHIPS = ['Can I afford a purchase today?', 'Check a product price in SGD', 'What changed my safe-to-spend?', 'Help me decide before I buy']
+
+function isSafeHref(href: string) {
+  if (href.startsWith('/')) return true
+  try {
+    const url = new URL(href)
+    return url.protocol === 'https:' || url.protocol === 'http:' || url.protocol === 'mailto:'
+  } catch {
+    return false
+  }
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const nodes: ReactNode[] = []
+  const pattern = /(\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*)/g
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index))
+
+    if (match[2] && match[3]) {
+      const href = match[3].trim()
+      nodes.push(
+        isSafeHref(href) ? (
+          <a key={`${match.index}-${href}`} href={href} target="_blank" rel="noreferrer">
+            {match[2]}
+          </a>
+        ) : (
+          match[2]
+        ),
+      )
+    } else if (match[4]) {
+      nodes.push(<strong key={`${match.index}-${match[4]}`}>{match[4]}</strong>)
+    }
+
+    lastIndex = pattern.lastIndex
+  }
+
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex))
+  return nodes
+}
+
+function MarkdownText({ content }: { content: string }) {
+  const blocks = content.trim().split(/\n{2,}/).filter(Boolean)
+
+  return (
+    <div className="markdown-content">
+      {blocks.map((block, blockIndex) => {
+        const lines = block.split('\n').filter(line => line.trim())
+        const isList = lines.length > 1 && lines.every(line => /^\s*[-*]\s+/.test(line))
+
+        if (isList) {
+          return (
+            <ul key={blockIndex}>
+              {lines.map((line, lineIndex) => (
+                <li key={lineIndex}>{renderInlineMarkdown(line.replace(/^\s*[-*]\s+/, ''))}</li>
+              ))}
+            </ul>
+          )
+        }
+
+        return (
+          <p key={blockIndex}>
+            {lines.map((line, lineIndex) => (
+              <Fragment key={lineIndex}>
+                {lineIndex > 0 && <br />}
+                {renderInlineMarkdown(line)}
+              </Fragment>
+            ))}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
 
 function getCurrentMonthRange() {
   return getCurrentMonthDateRange()
@@ -247,10 +322,10 @@ export default function SarathyPage() {
     : ''
   const suggestedChips = todaySignal
     ? [
-        `Can I spend ${formatCurrency(Math.max(10, Math.round(todaySignal.safeToSpend / 2)), todaySignal.currency)} today?`,
+        'Can I afford a purchase today?',
         'Check a product price in SGD',
-        'What should I avoid buying today?',
-        'Help me stay calm before I spend',
+        'What changed my safe-to-spend?',
+        todaySignal.status === 'danger' ? 'What should I pause today?' : 'Help me decide before I buy',
       ]
     : quickChips
 
@@ -313,7 +388,9 @@ export default function SarathyPage() {
               </span>
             )}
             <div className={msg.role === 'assistant' ? 'sarathy-bubble' : 'user-bubble'}>
-              {msg.content || (
+              {msg.content ? (
+                msg.role === 'assistant' ? <MarkdownText content={msg.content} /> : msg.content
+              ) : (
                 <span className="inline-flex items-center gap-1">
                   <span className="w-1.5 h-1.5 bg-ink-3 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                   <span className="w-1.5 h-1.5 bg-ink-3 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />

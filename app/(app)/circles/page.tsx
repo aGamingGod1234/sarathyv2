@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { ArrowRight, UsersRound, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import TabBar from '@/components/ui/TabBar'
 
@@ -83,7 +84,7 @@ export default function CirclesPage() {
         .select('*')
         .eq('invite_code', inviteCode.trim().toLowerCase())
         .single()
-      if (e || !circle) throw new Error('Circle not found — check the invite code')
+      if (e || !circle) throw new Error('Circle not found. Check the invite code.')
 
       const { error: memberError } = await supabase
         .from('circle_members')
@@ -104,8 +105,9 @@ export default function CirclesPage() {
   )
 
   return (
-    <div className="min-h-dvh bg-cream pb-24">
-      <div className="px-5 pt-12 pb-4">
+    <div className="min-h-dvh bg-cream px-5 pb-24 pt-12 md:pb-12 md:pl-32 md:pr-8 lg:pl-36">
+      <main className="mx-auto w-full max-w-5xl">
+      <div className="pb-4">
         <div className="flex items-center justify-between mb-1">
           <div>
             <h1 className="font-fraunces text-2xl font-semibold text-ink">Circles</h1>
@@ -124,15 +126,17 @@ export default function CirclesPage() {
         </div>
       </div>
 
-      <div className="px-5">
+      <div>
         {circles.length === 0 ? (
           <div className="card text-center py-10">
-            <p className="text-4xl mb-3">👥</p>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-plum/10 text-plum">
+              <UsersRound className="h-6 w-6" />
+            </div>
             <p className="font-fraunces text-lg font-semibold text-ink mb-2">
               No circles yet
             </p>
             <p className="text-ink-3 text-sm mb-6">
-              Create a private circle with people you trust —
+              Create a private circle with people you trust:
               partner, roommates, family, or an accountability buddy.
               Amounts are always blurred. Only money moments are shared.
             </p>
@@ -155,7 +159,7 @@ export default function CirclesPage() {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-saffron-soft rounded-full flex items-center justify-center text-lg">
-                    👥
+                    <UsersRound className="h-5 w-5 text-saffron" />
                   </div>
                   <div>
                     <p className="font-semibold text-ink text-sm">{circle.name}</p>
@@ -164,7 +168,7 @@ export default function CirclesPage() {
                     </p>
                   </div>
                 </div>
-                <span className="text-ink-3">→</span>
+                <ArrowRight className="h-4 w-4 text-ink-3" />
               </button>
             ))}
           </div>
@@ -178,7 +182,9 @@ export default function CirclesPage() {
           <div className="bottom-sheet">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-fraunces text-xl font-semibold text-ink">Create a circle</h3>
-              <button onClick={() => setShowCreate(false)} className="text-ink-3 text-2xl">×</button>
+              <button onClick={() => setShowCreate(false)} className="text-ink-3" aria-label="Close create circle sheet">
+                <X className="h-5 w-5" />
+              </button>
             </div>
             <p className="text-ink-3 text-sm mb-4">
               Give it a name. You'll get an invite code to share with people you trust.
@@ -193,7 +199,7 @@ export default function CirclesPage() {
             />
             {error && <div className="bg-red-50 text-danger text-sm px-4 py-3 rounded-xl mb-4">{error}</div>}
             <button onClick={handleCreate} className="btn-primary" disabled={saving || !name.trim()}>
-              {saving ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create circle →'}
+              {saving ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create circle'}
             </button>
           </div>
         </>
@@ -206,7 +212,9 @@ export default function CirclesPage() {
           <div className="bottom-sheet">
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-fraunces text-xl font-semibold text-ink">Join a circle</h3>
-              <button onClick={() => setShowJoin(false)} className="text-ink-3 text-2xl">×</button>
+              <button onClick={() => setShowJoin(false)} className="text-ink-3" aria-label="Close join circle sheet">
+                <X className="h-5 w-5" />
+              </button>
             </div>
             <p className="text-ink-3 text-sm mb-4">
               Enter the 8-character invite code someone shared with you.
@@ -222,11 +230,12 @@ export default function CirclesPage() {
             />
             {error && <div className="bg-red-50 text-danger text-sm px-4 py-3 rounded-xl mb-4">{error}</div>}
             <button onClick={handleJoin} className="btn-primary" disabled={saving || !inviteCode.trim()}>
-              {saving ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Join circle →'}
+              {saving ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Join circle'}
             </button>
           </div>
         </>
       )}
+      </main>
 
       <TabBar active="circles" />
     </div>

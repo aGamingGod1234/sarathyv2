@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { KeyRound, Mail, RotateCw, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, Mail, RotateCw, ShieldCheck } from 'lucide-react'
 
 type ResetStage = 'request' | 'verify' | 'reset'
 
@@ -19,6 +19,8 @@ export default function ForgotPasswordPage() {
   const [resetToken, setResetToken] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -35,7 +37,7 @@ export default function ForgotPasswordPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     })
-    const payload = await res.json()
+    const payload = await res.json().catch(() => ({}))
     if (!res.ok) {
       if (payload?.cooldownSeconds) setCooldown(payload.cooldownSeconds)
       throw new Error(payload?.error || 'Could not send reset code.')
@@ -83,7 +85,7 @@ export default function ForgotPasswordPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp }),
       })
-      const payload = await res.json()
+      const payload = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(payload?.error || 'Could not verify reset code.')
       setResetToken(payload.resetToken)
       setStage('reset')
@@ -111,7 +113,7 @@ export default function ForgotPasswordPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, resetToken, password, confirmPassword }),
       })
-      const payload = await res.json()
+      const payload = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(payload?.error || 'Could not reset password.')
       router.replace('/login')
     } catch (err: any) {
@@ -207,30 +209,50 @@ export default function ForgotPasswordPage() {
                 <div className="relative">
                   <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="at least 8 characters"
-                    className="input-field pl-11"
+                    className="input-field pl-11 pr-12"
                     required
                     minLength={8}
                     autoComplete="new-password"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(value => !value)}
+                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-ink-3"
+                    aria-label={showPassword ? 'Hide new password' : 'Show new password'}
+                    aria-pressed={showPassword}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-ink-3">Confirm new password</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="repeat your new password"
-                  className="input-field"
-                  required
-                  minLength={8}
-                  autoComplete="new-password"
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="repeat your new password"
+                    className="input-field pr-12"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(value => !value)}
+                    className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-ink-3"
+                    aria-label={showConfirmPassword ? 'Hide confirmed new password' : 'Show confirmed new password'}
+                    aria-pressed={showConfirmPassword}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </>
           )}
