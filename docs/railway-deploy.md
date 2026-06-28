@@ -22,14 +22,14 @@ Set these on the Next.js service:
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 NEXTAUTH_SECRET=generate-a-long-random-secret
 NEXTAUTH_URL=https://your-railway-domain
-GROQ_API_KEY=...
-DEEPSEEK_API_KEY=...
+OPENAI_API_KEY=...
 ```
 
-`GROQ_API_KEY` powers receipt image scanning and is the first-choice AI provider. `DEEPSEEK_API_KEY` is the silent fallback for text-only statement categorization and uses `deepseek-v4-flash` with thinking disabled. If you want to override the model later, set:
+`OPENAI_API_KEY` powers receipt image scanning and text statement categorization through `gpt-5.4-nano` with low reasoning effort. If you want to override those defaults later, set:
 
 ```text
-DEEPSEEK_MODEL=deepseek-v4-flash
+OPENAI_MODEL=gpt-5.4-nano
+OPENAI_REASONING_EFFORT=low
 ```
 
 Google sign-in is intentionally paused. To turn it back on later, set all three values:
@@ -52,7 +52,7 @@ https://your-railway-domain/api/auth/callback/google
 2. Deploy from the GitHub repository `aGamingGod1234/sarathyv2`.
 3. Add a PostgreSQL database service.
 4. Add `DATABASE_URL` to the app service as a reference variable from the PostgreSQL service.
-5. Add the required Auth/Groq/Google variables above.
+5. Add the required Auth/OpenAI/Google variables above.
 6. Generate a public Railway domain from the service networking settings.
 7. Redeploy the app service.
 

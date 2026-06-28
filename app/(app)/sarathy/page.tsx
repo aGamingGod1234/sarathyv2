@@ -125,7 +125,7 @@ export default function SarathyPage() {
       const monthEntries = getMonthEntries(entries)
       const monthSpent = monthEntries.reduce((sum, e) => sum + e.amount, 0)
 
-      // Call Groq via our API route
+      // Call the app-owned AI route with fresh money context.
       const response = await fetch('/api/sarathy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
