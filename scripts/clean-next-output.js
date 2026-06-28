@@ -31,3 +31,5 @@ for (const entry of fs.readdirSync(nextDir)) {
     force: true,
   })
 }
+
+emptyDirectory(path.join(process.cwd(), 'node_modules', '.cache'))
