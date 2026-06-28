@@ -14,6 +14,7 @@ model User {
   emailVerified  DateTime?
   image          String?
   password_hash  String?
+  password_changed_at DateTime?
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
 
@@ -158,6 +159,37 @@ model ChatMessage {
 
   @@index([user_id, created_at])
   @@map("chat_messages")
+}
+
+model AiDailyUsage {
+  id                    String   @id @default(cuid())
+  user_id               String
+  date_key              String
+  message_count         Int      @default(0)
+  product_lookup_count  Int      @default(0)
+  limit                 Int      @default(30)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  @@unique([user_id, date_key])
+  @@index([user_id, date_key])
+  @@index([user_id, date_key, message_count])
+  @@map("ai_daily_usage")
+}
+
+model AiUsageEvent {
+  id              String   @id @default(cuid())
+  user_id         String
+  feature         String   @default("sarathy_chat")
+  model           String?
+  status          String   @default("reserved")
+  product_lookup  Boolean  @default(false)
+  input_tokens    Int?
+  output_tokens   Int?
+  created_at      DateTime @default(now())
+
+  @@index([user_id, created_at])
+  @@map("ai_usage_events")
 }
 
 model RemittanceLog {

@@ -28,7 +28,7 @@ export default function CurrencySelector({ value, onChange, label }: Props) {
   const selected = CURRENCIES.find(c => c.code === value) || CURRENCIES[0]
 
   return (
-    <div className="relative">
+    <div className={`relative ${open ? 'z-[90]' : 'z-0'}`}>
       {label && (
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-3">{label}</p>
       )}
@@ -50,7 +50,7 @@ export default function CurrencySelector({ value, onChange, label }: Props) {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-72 overflow-y-auto rounded-2xl border border-line bg-white shadow-xl">
+        <div className="absolute left-0 right-0 top-full z-[100] mt-2 max-h-72 overflow-y-auto rounded-2xl border border-line bg-white shadow-xl">
             {CURRENCIES.map(c => (
               <button
                 key={c.code}

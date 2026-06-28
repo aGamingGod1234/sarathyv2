@@ -80,6 +80,16 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user?.id) token.sub = user.id
+      if (token.sub) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { password_changed_at: true },
+        })
+        const issuedAt = typeof token.iat === 'number' ? token.iat * 1000 : Date.now()
+        if (dbUser?.password_changed_at && dbUser.password_changed_at.getTime() > issuedAt) {
+          token.sub = undefined
+        }
+      }
       return token
     },
     async session({ session, token }) {

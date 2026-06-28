@@ -14,7 +14,7 @@ import {
 import { getCurrentMonthDateRange } from '@/lib/dates'
 import TabBar from '@/components/ui/TabBar'
 
-const FALLBACK_CHIPS = ['Can I afford this today?', 'Show my real picture', 'Plan with me', 'Am I okay?']
+const FALLBACK_CHIPS = ['Check a product price in SGD', 'Can I afford this today?', 'What can I spend without stress?', 'Ground me about money']
 
 function getCurrentMonthRange() {
   return getCurrentMonthDateRange()
@@ -125,13 +125,14 @@ export default function SarathyPage() {
       const monthEntries = getMonthEntries(entries)
       const monthSpent = monthEntries.reduce((sum, e) => sum + e.amount, 0)
 
-      // Call the app-owned AI route with fresh money context.
       const response = await fetch('/api/sarathy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
           isAnxious: anxiousOverride,
+          stream: true,
+          source: 'chat',
           context: {
             name: profile.name,
             companion_vibe: profile.companion_vibe,
@@ -149,35 +150,73 @@ export default function SarathyPage() {
         }),
       })
 
-      const data = await response.json()
+      if (!response.ok || !response.body || !response.headers.get('content-type')?.includes('text/event-stream')) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.message || 'Sarathy could not answer right now.')
+      }
+
+      const assistantId = (Date.now() + 1).toString()
       const assistantMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: assistantId,
         user_id: profile.id,
         role: 'assistant',
-        content: data.message || "I'm having a moment. Try again in a sec.",
+        content: '',
         created_at: new Date().toISOString(),
       }
-
       setMessages(prev => [...prev, assistantMsg])
-      setIsAnxious(false)
 
-      // Persistence failure should not turn a successful answer into a connection error.
-      try {
-        const { error } = await supabase.from('chat_messages').insert([
-          { user_id: user.id, role: 'user', content: text },
-          { user_id: user.id, role: 'assistant', content: assistantMsg.content },
-        ])
-        if (error) throw error
-      } catch (saveError) {
-        console.error('Failed to save chat messages:', saveError)
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let finalContent = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed.startsWith('data:')) continue
+
+          try {
+            const event = JSON.parse(trimmed.slice(5).trim())
+            if (typeof event.delta === 'string') {
+              finalContent += event.delta
+              setMessages(prev => prev.map(msg =>
+                msg.id === assistantId ? { ...msg, content: finalContent } : msg
+              ))
+            }
+            if (typeof event.error === 'string') {
+              finalContent = event.error
+              setMessages(prev => prev.map(msg =>
+                msg.id === assistantId ? { ...msg, content: event.error } : msg
+              ))
+            }
+            if (event.done && typeof event.message === 'string') {
+              finalContent = event.message
+              setMessages(prev => prev.map(msg =>
+                msg.id === assistantId ? { ...msg, content: event.message } : msg
+              ))
+            }
+          } catch {
+            // Ignore malformed stream metadata.
+          }
+        }
       }
 
+      setIsAnxious(false)
+
     } catch (err) {
+      const message = err instanceof Error ? err.message : "I'm having trouble connecting right now, but I'm here. Try again in a moment."
       const fallbackMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         user_id: profile?.id || '',
         role: 'assistant',
-        content: "I'm having trouble connecting right now, but I'm here. Try again in a moment.",
+        content: message,
         created_at: new Date().toISOString(),
       }
       setMessages(prev => [...prev, fallbackMsg])
@@ -188,7 +227,7 @@ export default function SarathyPage() {
 
   const handleAnxious = () => {
     setIsAnxious(true)
-    sendMessage("I'm feeling anxious about my money right now", true)
+    sendMessage("Ground me about my money right now. Tell me what is safe, what to pause, and the next small step.", true)
   }
 
   if (loading) {
@@ -202,42 +241,51 @@ export default function SarathyPage() {
   const firstName = getFirstName(profile)
   const quickChips = profile ? getSarathyQuickChips(profile) : FALLBACK_CHIPS
   const signalPrompt = todaySignal?.topCategory
-    ? `Give me a quick read on today. I have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend and ${todaySignal.topCategory} is my biggest category this month.`
+    ? `Review my safe-to-spend today. I have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend and ${todaySignal.topCategory} is my biggest category this month.`
     : todaySignal
-    ? `Give me a quick read on today. I have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend.`
+    ? `Review my safe-to-spend today. I have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend.`
     : ''
+  const suggestedChips = todaySignal
+    ? [
+        `Can I spend ${formatCurrency(Math.max(10, Math.round(todaySignal.safeToSpend / 2)), todaySignal.currency)} today?`,
+        'Check a product price in SGD',
+        'What should I avoid buying today?',
+        'Help me stay calm before I spend',
+      ]
+    : quickChips
 
   return (
-    <div className="min-h-dvh bg-cream flex flex-col">
+    <div className="min-h-dvh bg-cream flex flex-col md:pl-28">
       {/* Header */}
-      <div className="px-5 pt-12 pb-4 border-b border-cream-3 bg-cream">
-        <div className="flex items-center justify-between">
+      <div className="px-5 pt-12 pb-4 border-b border-cream-3 bg-cream md:px-8 lg:px-10">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between">
           <div>
-            <h1 className="font-fraunces text-xl font-semibold text-ink">Sarathy</h1>
+            <h1 className="font-fraunces text-2xl font-semibold text-ink">Sarathy</h1>
             <p className="text-ink-3 text-xs">{getCompanionLabel(profile)} for {firstName}</p>
           </div>
           <button
             onClick={handleAnxious}
             className="flex items-center gap-1.5 bg-red-50 text-danger text-xs font-medium px-3 py-2 rounded-xl active:scale-95 transition-transform"
+            title="Send a grounding money check to Sarathy"
           >
             <AlertCircle className="h-3.5 w-3.5" />
-            I'm anxious
+            Ground me
           </button>
         </div>
       </div>
 
       {todaySignal && (
         <div className="border-b border-cream-3 bg-white px-4 py-3">
-          <div className="mx-auto flex max-w-[480px] items-center gap-3">
+          <div className="mx-auto flex max-w-5xl items-center gap-3">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-saffron-soft text-saffron">
               <Sparkles className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-ink">
-                Today: {formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe
+                Safe-to-spend today: {formatCurrency(todaySignal.safeToSpend, todaySignal.currency)}
               </p>
               <p className="truncate text-xs text-ink-3">
-                {todaySignal.topCategory ? `${todaySignal.topCategory} is leading this month` : 'Ask for a quick read before deciding'}
+                {todaySignal.topCategory ? `${todaySignal.topCategory} is leading this month` : 'Use this before buying, not as a target to spend'}
               </p>
             </div>
             <button
@@ -246,14 +294,14 @@ export default function SarathyPage() {
               disabled={sending || !signalPrompt}
               className="rounded-full bg-saffron px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
             >
-              Ask
+              Review
             </button>
           </div>
         </div>
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 pb-44 flex flex-col gap-3">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 pb-44 md:px-8 md:pb-36">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -265,7 +313,13 @@ export default function SarathyPage() {
               </span>
             )}
             <div className={msg.role === 'assistant' ? 'sarathy-bubble' : 'user-bubble'}>
-              {msg.content}
+              {msg.content || (
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-ink-3 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 bg-ink-3 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 bg-ink-3 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </span>
+              )}
             </div>
           </div>
         ))}
@@ -285,10 +339,10 @@ export default function SarathyPage() {
       </div>
 
       {/* Input area */}
-      <div className="fixed bottom-16 left-0 right-0 bg-cream border-t border-cream-3 px-4 py-3 pb-safe">
+      <div className="fixed bottom-16 left-0 right-0 bg-cream border-t border-cream-3 px-4 py-3 pb-safe md:bottom-6 md:left-32 md:right-8 md:mx-auto md:max-w-5xl md:rounded-2xl md:border">
         {/* Quick chips */}
         <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
-          {quickChips.map(chip => (
+          {suggestedChips.map(chip => (
             <button
               key={chip}
               onClick={() => sendMessage(chip)}

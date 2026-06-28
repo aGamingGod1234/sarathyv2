@@ -143,6 +143,10 @@
     z-index: 50;
   }
 
+  .tab-brand {
+    display: none;
+  }
+
   .tab-item {
     flex: 1;
     display: flex;
@@ -172,6 +176,70 @@
 
   .tab-item:active {
     transform: translateY(1px);
+  }
+
+  @media (min-width: 768px) {
+    .tab-bar {
+      bottom: 24px;
+      top: 24px;
+      left: 24px;
+      transform: none;
+      width: 88px;
+      max-width: none;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 14px 10px;
+      box-shadow: 0 18px 45px rgba(30,10,46,0.08);
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tab-brand {
+      display: flex;
+      height: 48px;
+      width: 48px;
+      align-items: center;
+      justify-content: center;
+      align-self: center;
+      border-radius: 16px;
+      background: var(--plum);
+      color: white;
+      font-family: 'Fraunces', serif;
+      font-size: 22px;
+      font-weight: 700;
+      text-decoration: none;
+      margin-bottom: 8px;
+    }
+
+    .tab-item {
+      flex: 0 0 auto;
+      min-height: 64px;
+      gap: 5px;
+      padding: 8px 6px;
+    }
+
+    .tab-item span {
+      font-size: 11px;
+    }
+
+    .tab-item:active {
+      transform: none;
+    }
+
+    .bottom-sheet {
+      bottom: 50%;
+      left: 50%;
+      max-width: 520px;
+      border-bottom: 1px solid var(--line);
+      border-radius: 24px;
+      padding-bottom: 20px;
+      transform: translate(-50%, 50%);
+      animation: modalIn 0.2s ease;
+    }
+
+    .sheet-handle {
+      display: none;
+    }
   }
 
   .sarathy-bubble {
@@ -234,8 +302,8 @@
 
 /* Smooth page transitions */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .page-enter {
@@ -295,9 +363,31 @@
   to { transform: translate(-50%, 0); }
 }
 
+@keyframes modalIn {
+  from { opacity: 0; transform: translate(-50%, 52%); }
+  to { opacity: 1; transform: translate(-50%, 50%); }
+}
+
 .overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.4);
   z-index: 99;
+}
+
+@media (min-width: 768px) {
+  .bottom-sheet {
+    bottom: 50%;
+    left: 50%;
+    max-width: 520px;
+    border-bottom: 1px solid var(--line);
+    border-radius: 24px;
+    padding-bottom: 20px;
+    transform: translate(-50%, 50%);
+    animation: modalIn 0.2s ease;
+  }
+
+  .sheet-handle {
+    display: none;
+  }
 }

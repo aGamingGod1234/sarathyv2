@@ -161,8 +161,9 @@ export function getSarathyQuickChips(profile: MaybeProfile) {
 
   const chips = [
     'Can I afford this today?',
-    `What should I watch for ${responsibility}?`,
-    `Help with ${fear}`,
+    'Check a product price in SGD',
+    `What should I protect for ${responsibility}?`,
+    `Help me handle ${fear}`,
   ]
 
   if (vibe === 'no_nonsense_sibling') chips.push('Give me the honest version')

@@ -272,15 +272,15 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-dvh bg-white">
-      <main className="mx-auto min-h-dvh max-w-[480px] bg-white pb-36">
+    <div className="min-h-dvh bg-white md:bg-cream md:pl-28">
+      <main className="mx-auto min-h-dvh w-full max-w-[480px] bg-white pb-36 md:max-w-5xl md:bg-cream md:pb-16">
         {xpFloat.show && (
           <div className="xp-float" style={{ left: xpFloat.x, top: xpFloat.y }}>
             +10 XP
           </div>
         )}
 
-        <header className="px-5 pt-10">
+        <header className="px-5 pt-10 md:px-8 md:pt-12">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <p className="font-fraunces text-4xl font-semibold text-plum">Sarathy</p>
@@ -331,7 +331,7 @@ export default function HomePage() {
           </button>
         </header>
 
-        <section className="px-5 pt-4">
+        <section className="px-5 pt-4 md:px-8">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -361,7 +361,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="px-5 pt-4">
+        <section className="px-5 pt-4 md:px-8">
           <div className="card">
             <div className="mb-4 flex items-center justify-between">
               <div>
@@ -394,7 +394,7 @@ export default function HomePage() {
           </button>
         </section>
 
-        <section className="px-5 pt-4">
+        <section className="px-5 pt-4 md:px-8">
           <div className="rounded-2xl border border-plum/10 bg-plum px-4 py-4 text-white shadow-[0_12px_34px_rgba(30,10,46,0.12)]">
             <div className="mb-3 flex items-center justify-between gap-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-white/60">{personalNote.eyebrow}</p>
@@ -406,7 +406,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="px-5 pt-4">
+        <section className="px-5 pt-4 md:px-8">
           <div className="card overflow-hidden p-0">
             <div className="border-b border-line px-4 py-4">
               <p className="text-lg font-semibold text-plum">This month</p>
@@ -550,11 +550,11 @@ export default function HomePage() {
           </>
         )}
 
-        <section className="px-5 pt-4">
+        <section className="px-5 pt-4 md:px-8">
           <MoodCheckIn userId={profile.id} />
         </section>
 
-        <section className="px-5 pt-4">
+        <section className="px-5 pt-4 md:px-8">
           <div className="grid grid-cols-3 gap-3">
             {primaryActions.map(action => {
               const Icon = action.icon
@@ -579,7 +579,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="px-5 pt-5">
+        <section className="px-5 pt-5 md:px-8">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-bold text-plum">More money tools</h2>
             <p className="text-xs text-ink-3">{secondaryActions.length} tools</p>

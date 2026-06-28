@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   BarChart3,
@@ -7,6 +8,7 @@ import {
   Gem,
   Globe2,
   HeartHandshake,
+  KeyRound,
   LogOut,
   ShieldCheck,
   Sparkles,
@@ -25,6 +27,13 @@ export default function ProfilePage() {
   const supabase = createClient()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [passwordOpen, setPasswordOpen] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState('')
 
   const loadProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -47,6 +56,38 @@ export default function ProfilePage() {
     setProfile(prev => prev ? { ...prev, primary_currency: code } : prev)
   }
 
+  const handleChangePassword = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (passwordSaving) return
+    setPasswordSaving(true)
+    setPasswordError('')
+    setPasswordSuccess('')
+
+    try {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+      })
+      const data = await response.json()
+
+      if (!response.ok) throw new Error(data.error || 'Could not change password.')
+
+      setPasswordSuccess('Password changed. Please sign in again.')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      window.setTimeout(async () => {
+        await supabase.auth.signOut()
+        router.replace('/login')
+      }, 900)
+    } catch (err: any) {
+      setPasswordError(err.message || 'Could not change password.')
+    } finally {
+      setPasswordSaving(false)
+    }
+  }
+
   if (loading || !profile) {
     return (
       <div className="min-h-dvh bg-cream flex items-center justify-center">
@@ -64,7 +105,8 @@ export default function ProfilePage() {
   ]
 
   return (
-    <div className="min-h-dvh bg-cream pb-24 px-5 pt-12">
+    <div className="min-h-dvh bg-cream pb-28 px-5 pt-12 md:pb-12 md:pl-32 md:pr-8 lg:pl-36">
+      <main className="mx-auto w-full max-w-5xl">
       <div className="mb-5">
         <h1 className="font-fraunces text-2xl font-semibold text-ink mb-1">{summary.title}</h1>
         <p className="text-sm text-ink-3">{summary.subtitle}</p>
@@ -137,7 +179,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="flex flex-col gap-3 mb-4">
-        <a href="/mydata" className="card flex items-center justify-between active:opacity-70">
+        <Link href="/mydata" className="card flex items-center justify-between active:opacity-70">
           <div className="flex items-center gap-3">
             <BarChart3 className="h-5 w-5 text-plum" />
             <div>
@@ -146,8 +188,8 @@ export default function ProfilePage() {
             </div>
           </div>
           <ChevronRight className="h-4 w-4 text-ink-3" />
-        </a>
-        <a href="/pricing" className="card flex items-center justify-between active:opacity-70">
+        </Link>
+        <Link href="/profile/plus" className="card flex items-center justify-between active:opacity-70">
           <div className="flex items-center gap-3">
             <Gem className="h-5 w-5 text-plum" />
             <div>
@@ -156,7 +198,67 @@ export default function ProfilePage() {
             </div>
           </div>
           <ChevronRight className="h-4 w-4 text-ink-3" />
-        </a>
+        </Link>
+      </div>
+
+      <div className="card mb-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <KeyRound className="mt-0.5 h-5 w-5 flex-shrink-0 text-plum" />
+            <div>
+              <p className="text-sm font-semibold text-ink">Account & security</p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-3">
+                Change your password here, or use the OTP reset flow if you do not know the current one.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPasswordOpen(current => !current)}
+            className="flex-shrink-0 rounded-xl border border-line px-3 py-2 text-xs font-semibold text-ink"
+          >
+            {passwordOpen ? 'Close' : 'Change'}
+          </button>
+        </div>
+
+        {passwordOpen && (
+          <form onSubmit={handleChangePassword} className="mt-4 grid gap-3 page-enter">
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={event => setCurrentPassword(event.target.value)}
+              placeholder="Current password"
+              className="input-field"
+              autoComplete="current-password"
+            />
+            <input
+              type="password"
+              value={newPassword}
+              onChange={event => setNewPassword(event.target.value)}
+              placeholder="New password"
+              className="input-field"
+              autoComplete="new-password"
+            />
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={event => setConfirmPassword(event.target.value)}
+              placeholder="Confirm new password"
+              className="input-field"
+              autoComplete="new-password"
+            />
+            {passwordError && <p className="text-xs font-medium text-danger">{passwordError}</p>}
+            {passwordSuccess && <p className="text-xs font-medium text-safe">{passwordSuccess}</p>}
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <button type="submit" className="btn-primary" disabled={passwordSaving}>
+                {passwordSaving ? 'Changing...' : 'Save new password'}
+              </button>
+              <Link href="/forgot-password" className="btn-secondary text-center">
+                Forgot current password
+              </Link>
+            </div>
+          </form>
+        )}
       </div>
 
       <button
@@ -166,6 +268,7 @@ export default function ProfilePage() {
         <LogOut className="h-4 w-4" />
         Sign out
       </button>
+      </main>
 
       <TabBar active="profile" />
     </div>

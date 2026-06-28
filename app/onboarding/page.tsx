@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowRight,
@@ -24,6 +24,7 @@ import type { LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { PLAN_DEFINITIONS } from '@/lib/plans'
 import CurrencySelector from '@/components/ui/CurrencySelector'
+import { COUNTRY_NAMES } from '@/lib/countries'
 
 type VibeId = 'calm_mentor' | 'hype_friend' | 'no_nonsense_sibling'
 type PlanChoice = 'free' | 'plus'
@@ -172,6 +173,43 @@ function Chip({
   )
 }
 
+function CountryInput({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-2 block text-xs font-semibold uppercase tracking-wide text-ink-3">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="text"
+        list={`${id}-country-options`}
+        autoComplete="country-name"
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="input-field"
+      />
+      <datalist id={`${id}-country-options`}>
+        {COUNTRY_NAMES.map(country => (
+          <option key={country} value={country} />
+        ))}
+      </datalist>
+    </div>
+  )
+}
+
 function ProgressiveBlock({
   show,
   children,
@@ -182,7 +220,7 @@ function ProgressiveBlock({
   className?: string
 }) {
   if (!show) return null
-  return <section className={`page-enter ${className}`}>{children}</section>
+  return <section className={`page-enter relative ${className}`}>{children}</section>
 }
 
 export default function OnboardingPage() {
@@ -191,6 +229,8 @@ export default function OnboardingPage() {
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [revealedStep, setRevealedStep] = useState(0)
+  const [showReview, setShowReview] = useState(false)
 
   const [name, setName] = useState('')
   const [selectedUserTypes, setSelectedUserTypes] = useState<string[]>([])
@@ -243,6 +283,28 @@ export default function OnboardingPage() {
   ]
   const progress = progressSteps.filter(Boolean).length
   const progressPercent = Math.min(100, (progress / progressSteps.length) * 100)
+  const firstIncompleteStep = progressSteps.findIndex(step => !step)
+  const allowedStep = firstIncompleteStep === -1 ? progressSteps.length - 1 : firstIncompleteStep
+  const visibleStep = Math.min(revealedStep, allowedStep)
+
+  useEffect(() => {
+    if (revealedStep > allowedStep) {
+      setRevealedStep(allowedStep)
+      return
+    }
+
+    if (revealedStep < allowedStep) {
+      const timer = window.setTimeout(() => {
+        setRevealedStep(current => Math.min(current + 1, allowedStep))
+      }, 180)
+
+      return () => window.clearTimeout(timer)
+    }
+  }, [allowedStep, revealedStep])
+
+  useEffect(() => {
+    if (!isComplete && showReview) setShowReview(false)
+  }, [isComplete, showReview])
 
   const personalPreview = useMemo(() => {
     const person = firstName(name)
@@ -333,8 +395,8 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-dvh bg-white lg:bg-cream">
-      <main className="mx-auto min-h-dvh w-full max-w-[480px] bg-cream px-5 pb-8 pt-10 lg:grid lg:max-w-[1180px] lg:grid-cols-[minmax(320px,0.9fr)_minmax(560px,1.1fr)] lg:gap-12 lg:px-10 lg:py-14 xl:max-w-[1280px]">
-        <div className="mb-7 lg:sticky lg:top-12 lg:mb-0 lg:self-start">
+      <main className="mx-auto min-h-dvh w-full max-w-[480px] bg-cream px-5 pb-8 pt-10 lg:grid lg:h-dvh lg:max-w-[1360px] lg:grid-cols-[minmax(380px,0.85fr)_minmax(680px,1.15fr)] lg:gap-12 lg:overflow-hidden lg:px-10 lg:py-14 xl:grid-cols-[minmax(420px,0.9fr)_minmax(760px,1.1fr)]">
+        <div className="mb-7 lg:mb-0 lg:self-start">
           <p className="text-xs font-semibold uppercase tracking-wide text-saffron">Setup</p>
           <h1 className="mt-2 font-fraunces text-3xl font-semibold leading-tight text-ink lg:text-5xl lg:leading-[1.08]">
             {introWords.map((word, index) => (
@@ -350,16 +412,21 @@ export default function OnboardingPage() {
               </span>
             ))}
           </h1>
-          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-cream-3" aria-hidden="true">
-            <div
-              className="h-full rounded-full bg-saffron transition-all duration-500"
-              style={{ width: `${progressPercent}%` }}
-            />
+          <div className="mt-5">
+            <p className="mb-1 text-right text-xs font-semibold text-ink-3">
+              {progress}/{progressSteps.length}
+            </p>
+            <div className="h-1.5 overflow-hidden rounded-full bg-cream-3" aria-hidden="true">
+              <div
+                className="h-full rounded-full bg-saffron transition-all duration-500"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="space-y-6 lg:min-w-0 lg:self-start">
-          <ProgressiveBlock show>
+        <div className="space-y-6 lg:min-w-0 lg:self-start lg:h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:pr-2">
+          <ProgressiveBlock show={!showReview && visibleStep >= 0}>
             <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-ink-3">
               What should Sarathy call you?
             </label>
@@ -376,32 +443,22 @@ export default function OnboardingPage() {
             </div>
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={hasName} className="space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
-            <div>
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-ink-3">
-                Current country
-              </label>
-              <input
-                type="text"
-                value={currentCountry}
-                onChange={event => setCurrentCountry(event.target.value)}
-                placeholder="Singapore"
-                className="input-field"
-              />
-            </div>
+          <ProgressiveBlock show={!showReview && visibleStep >= 1} className="z-50 space-y-4 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
+            <CountryInput
+              id="current-country"
+              label="Current country"
+              value={currentCountry}
+              onChange={setCurrentCountry}
+              placeholder="Singapore"
+            />
 
-            <div>
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-ink-3">
-                Home country or roots
-              </label>
-              <input
-                type="text"
-                value={homeCountry}
-                onChange={event => setHomeCountry(event.target.value)}
-                placeholder="India, Vietnam, China..."
-                className="input-field"
-              />
-            </div>
+            <CountryInput
+              id="home-country"
+              label="Home country or roots"
+              value={homeCountry}
+              onChange={setHomeCountry}
+              placeholder="India, Vietnam, China..."
+            />
 
             <CurrencySelector
               label="Primary currency"
@@ -410,9 +467,9 @@ export default function OnboardingPage() {
             />
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={hasLocation}>
+          <ProgressiveBlock show={!showReview && visibleStep >= 2} className="z-10">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-3">
-              What sounds most like you?
+              Which fits your current status the most?
             </p>
             <div className="grid gap-3 lg:grid-cols-3">
               {identityOptions.map(option => (
@@ -428,7 +485,7 @@ export default function OnboardingPage() {
             </div>
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={hasIdentity}>
+          <ProgressiveBlock show={!showReview && visibleStep >= 3}>
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-3">
               Pick the voice you will actually listen to
             </p>
@@ -446,7 +503,7 @@ export default function OnboardingPage() {
             </div>
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={hasVibe}>
+          <ProgressiveBlock show={!showReview && visibleStep >= 4}>
             <p className="mb-3 text-sm font-semibold text-ink">Who do you feel responsible for?</p>
             <div className="flex flex-wrap gap-2">
               {responsibilityOptions.map(option => (
@@ -461,7 +518,7 @@ export default function OnboardingPage() {
             </div>
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={hasResponsibility}>
+          <ProgressiveBlock show={!showReview && visibleStep >= 5}>
             <p className="mb-3 text-sm font-semibold text-ink">What worries you most about money?</p>
             <div className="flex flex-wrap gap-2">
               {fearOptions.map(option => (
@@ -476,7 +533,7 @@ export default function OnboardingPage() {
             </div>
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={hasFear}>
+          <ProgressiveBlock show={!showReview && visibleStep >= 6}>
             <p className="mb-3 text-sm font-semibold text-ink">When does money usually come in?</p>
             <div className="flex flex-wrap gap-2">
               {incomeOptions.map(option => (
@@ -491,7 +548,7 @@ export default function OnboardingPage() {
             </div>
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={hasIncome}>
+          <ProgressiveBlock show={!showReview && visibleStep >= 7}>
             <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-ink-3">
               Monthly budget or income
             </label>
@@ -502,12 +559,12 @@ export default function OnboardingPage() {
                 onChange={event => setTotalMoney(event.target.value)}
                 placeholder="0"
                 min="0"
-                className="w-full bg-transparent text-center font-fraunces text-5xl font-semibold text-ink outline-none"
+                className="w-full bg-transparent text-left font-fraunces text-5xl font-semibold text-ink outline-none"
               />
             </div>
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={hasMoneyAmount} className="space-y-4">
+          <ProgressiveBlock show={!showReview && visibleStep >= 8} className="space-y-4">
             <div>
               <p className="mb-3 text-sm font-semibold text-ink">What kind of money is this?</p>
               <div className="flex flex-wrap gap-2">
@@ -556,7 +613,7 @@ export default function OnboardingPage() {
             )}
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={Boolean(moneyType) && (!hasCommitted || committed > 0)}>
+          <ProgressiveBlock show={!showReview && visibleStep >= 9}>
             <div className="rounded-2xl border border-saffron/20 bg-saffron-soft p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-saffron">Starting plan amount</p>
               <p className="mt-1 font-fraunces text-2xl font-semibold text-ink">
@@ -568,7 +625,7 @@ export default function OnboardingPage() {
             </div>
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={hasMoneyProfile}>
+          <ProgressiveBlock show={!showReview && visibleStep >= 9}>
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-3">
               Choose how deep Sarathy should go
             </p>
@@ -648,8 +705,8 @@ export default function OnboardingPage() {
             </div>
           </ProgressiveBlock>
 
-          <ProgressiveBlock show={isComplete}>
-            <div className="rounded-[1.5rem] bg-plum p-5 text-white">
+          <ProgressiveBlock show={showReview}>
+            <div className="rounded-[1.5rem] bg-plum p-5 text-white" style={{ animation: 'fadeIn 0.35s ease forwards' }}>
               <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-saffron">
                 <BadgeCheck className="h-6 w-6 text-white" />
               </div>
@@ -658,7 +715,7 @@ export default function OnboardingPage() {
             </div>
 
             <div className="mt-5 grid gap-3 lg:grid-cols-3">
-              <div className="card flex items-start gap-3">
+              <div className="card flex items-start gap-3 opacity-0" style={{ animation: 'fadeIn 0.35s ease 120ms forwards' }}>
                 <MessageCircleHeart className="mt-0.5 h-5 w-5 flex-shrink-0 text-saffron" />
                 <div>
                   <p className="text-sm font-semibold text-ink">{selectedVibe.title} voice</p>
@@ -668,7 +725,7 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <div className="card flex items-start gap-3">
+              <div className="card flex items-start gap-3 opacity-0" style={{ animation: 'fadeIn 0.35s ease 220ms forwards' }}>
                 <CalendarClock className="mt-0.5 h-5 w-5 flex-shrink-0 text-saffron" />
                 <div>
                   <p className="text-sm font-semibold text-ink">A month that starts with context</p>
@@ -678,7 +735,7 @@ export default function OnboardingPage() {
                 </div>
               </div>
 
-              <div className="card flex items-start gap-3">
+              <div className="card flex items-start gap-3 opacity-0" style={{ animation: 'fadeIn 0.35s ease 320ms forwards' }}>
                 <Globe2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-saffron" />
                 <div>
                   <p className="text-sm font-semibold text-ink">{selectedIdentity}</p>
@@ -697,21 +754,43 @@ export default function OnboardingPage() {
           )}
 
           <div className="pt-2">
-            <button
-              type="button"
-              onClick={handleFinish}
-              disabled={!isComplete || saving}
-              className="btn-primary"
-            >
-              {saving ? (
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <>
-                  Enter Sarathy
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
+            {!showReview && isComplete && (
+              <button
+                type="button"
+                onClick={() => setShowReview(true)}
+                className="btn-primary"
+              >
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+
+            {showReview && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setShowReview(false)}
+                  className="btn-secondary"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFinish}
+                  disabled={saving}
+                  className="btn-primary"
+                >
+                  {saving ? (
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <>
+                      Enter Sarathy
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>
