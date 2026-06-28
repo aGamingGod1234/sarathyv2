@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Groq from 'groq-sdk'
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+function getGroqClient() {
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey) {
+    return null
+  }
+
+  return new Groq({ apiKey })
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const groq = getGroqClient()
+    if (!groq) {
+      return NextResponse.json({ error: 'AI receipt scanning is not configured.' }, { status: 503 })
+    }
+
     const { imageBase64 } = await req.json()
     if (!imageBase64) return NextResponse.json({ error: 'No image' }, { status: 400 })
     const completion = await groq.chat.completions.create({
