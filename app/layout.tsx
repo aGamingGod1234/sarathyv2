@@ -1,18 +1,18 @@
 import type { Metadata, Viewport } from 'next'
-import { Archivo, Instrument_Sans } from 'next/font/google'
+import { Bricolage_Grotesque, Manrope } from 'next/font/google'
 import './globals.css'
 
-const instrumentSans = Instrument_Sans({
+const manrope = Manrope({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-instrument-sans',
-  weight: ['400', '500', '600', '700'],
+  variable: '--font-manrope',
+  weight: ['400', '500', '600', '700', '800'],
 })
 
-const archivo = Archivo({
+const bricolageGrotesque = Bricolage_Grotesque({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-archivo',
+  variable: '--font-bricolage-grotesque',
   weight: ['500', '600', '700', '800'],
 })
 
@@ -45,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${instrumentSans.variable} ${archivo.variable}`}>
+    <html lang="en" className={`${manrope.variable} ${bricolageGrotesque.variable}`}>
       <body className="font-sans bg-cream antialiased">
         {children}
       </body>

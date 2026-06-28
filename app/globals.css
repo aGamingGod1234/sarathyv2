@@ -17,10 +17,10 @@
     --safe: #10B981;
     --danger: #F43F5E;
     --warning: #F59E0B;
-    --font-sans: var(--font-instrument-sans), "Suisse Intl", "Suisse Int'l", "Suisse International", "Neue Haas Grotesk Text", "Neue Haas Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    --font-display: var(--font-archivo), "PP Neue Montreal", "Neue Montreal", "GT America", "Founders Grotesk", "Neue Haas Grotesk Display", "Neue Haas Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    --font-brand: var(--font-archivo), "Founders Grotesk", "PP Neue Montreal", "GT America", "Neue Haas Grotesk Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    --font-numeric: var(--font-instrument-sans), "GT America", "Neue Haas Grotesk Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-sans: var(--font-manrope), "Suisse Intl", "Suisse Int'l", "Suisse International", "Neue Haas Grotesk Text", "Neue Haas Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-display: var(--font-bricolage-grotesque), "PP Neue Montreal", "Neue Montreal", "GT America", "Founders Grotesk", "Neue Haas Grotesk Display", "Neue Haas Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-brand: var(--font-bricolage-grotesque), "Founders Grotesk", "PP Neue Montreal", "GT America", "Neue Haas Grotesk Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-numeric: var(--font-manrope), "GT America", "Neue Haas Grotesk Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
   }
 
   * {
