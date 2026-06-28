@@ -89,6 +89,7 @@ export function getHomePersonalization(
 ) {
   const currency = safeData.currency || profile?.primary_currency || 'SGD'
   const safeAmount = formatCurrency(safeData.safeToSpend, currency)
+  const overToday = safeData.safeToSpend < 0 ? formatCurrency(Math.abs(safeData.safeToSpend), currency) : null
   const responsibility = getResponsibilityPhrase(profile)
   const fear = getMoneyFearPhrase(profile)
   const topCategoryLine = topCategory
@@ -99,7 +100,9 @@ export function getHomePersonalization(
     return {
       eyebrow: 'Personal note',
       title: 'Make today a reset day',
-      body: `You have ${safeAmount} marked safe today. Use Money check before non-essential spending so the plan still protects ${responsibility}.`,
+      body: overToday
+        ? `You are ${overToday} over today's safe amount. Pause non-essential spending so the plan still protects ${responsibility}.`
+        : `You have ${safeAmount} marked safe today. Use Money check before non-essential spending so the plan still protects ${responsibility}.`,
       detail: topCategoryLine,
     }
   }
@@ -179,10 +182,15 @@ export function getMoneyCheckIntro(profile: MaybeProfile, safeData?: SafeToSpend
   const responsibility = getResponsibilityPhrase(profile)
   const currency = safeData?.currency || profile?.primary_currency || 'SGD'
   const safeAmount = safeData ? formatCurrency(safeData.safeToSpend, currency) : null
+  const overToday = safeData && safeData.safeToSpend < 0
+    ? formatCurrency(Math.abs(safeData.safeToSpend), currency)
+    : null
 
   return {
     title: possessiveTitle(profile, 'money check'),
-    subtitle: safeAmount
+    subtitle: overToday
+      ? `You are ${overToday} over today's safe amount. Check only required spending.`
+      : safeAmount
       ? `${safeAmount} safe today. Ask before a purchase changes the plan for ${responsibility}.`
       : `Ask before a purchase changes the plan for ${responsibility}.`,
     impulseTitle: personalName ? `Pause for ${firstName}` : 'Pause before spending',
@@ -274,7 +282,9 @@ export function getSarathyInbox(
     items.push({
       id: 'safety-danger',
       title: 'I would check before spending today',
-      body: todaySpent > safeData.dailyAllowance
+      body: safeData.safeToSpend < 0
+        ? `You are ${formatCurrency(Math.abs(safeData.safeToSpend), currency)} over today's safe amount. Pause non-essential spending and check the plan.`
+        : todaySpent > safeData.dailyAllowance
         ? `${formatCurrency(todaySpent, currency)} is already logged today. Pause non-essential spending and check the plan.`
         : `${formatCurrency(safeData.safeToSpend, currency)} is marked safe. A 20-second check can keep the plan steady.`,
       actionLabel: 'Open money check',

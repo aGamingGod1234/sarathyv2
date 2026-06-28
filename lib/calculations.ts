@@ -47,7 +47,7 @@ export function calculateSafeToSpend(
   const freeBeforeToday = planAmount - fixedLeft - spentBeforeToday - buffer
   const freeToUse = planAmount - fixedLeft - alreadySpent - buffer
   const dailyAllowance = Math.max(0, Math.floor(freeBeforeToday / Math.max(daysLeft, 1)))
-  const todayRemaining = Math.max(0, Math.floor(dailyAllowance - todaySpent))
+  const todayRemaining = Math.floor(dailyAllowance - todaySpent)
   const safeToSpend = todayRemaining
 
   // Safety status
@@ -62,7 +62,7 @@ export function calculateSafeToSpend(
   if (status === 'safe') {
     safetyLine = `You're safe through the ${monthEnd}`
   } else if (todaySpent > dailyAllowance) {
-    safetyLine = `Today's safe amount is used up`
+    safetyLine = `Over today's safe amount by ${formatCurrency(Math.abs(todayRemaining), currency)}`
   } else if (status === 'tight') {
     safetyLine = `A bit tight - watch spending through the ${monthEnd}`
   } else {
@@ -81,7 +81,7 @@ export function calculateSafeToSpend(
     todayRemaining,
     dailyAllowance,
     buffer,
-    freeToUse: Math.max(0, freeToUse),
+    freeToUse,
     daysLeft,
     currency,
   }

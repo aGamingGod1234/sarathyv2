@@ -117,7 +117,7 @@ function buildContextBlock(context: NonNullable<Awaited<ReturnType<typeof loadMo
     `Today daily allowance: ${formatCurrency(safeData.dailyAllowance, currency)}`,
     `Today safe-to-spend remaining: ${formatCurrency(safeData.safeToSpend, currency)}`,
     `Today overspent by: ${formatCurrency(todayOverBy, currency)}`,
-    `Free to use for rest of month: ${formatCurrency(safeData.freeToUse, currency)}`,
+    `Month pool after today's spending: ${formatCurrency(safeData.freeToUse, currency)}`,
     `Days remaining: ${compactValue(safeData.daysLeft)}`,
     `Budget status: ${compactValue(safeData.status)}`,
     `Top category this month: ${topCategory ? `${topCategory.category} at ${formatCurrency(topCategory.total, currency)} (${topCategory.percentage}%)` : 'unknown'}`,
