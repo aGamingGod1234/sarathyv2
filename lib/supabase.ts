@@ -155,29 +155,37 @@ export function createClient() {
           email,
           password,
         })
+        const message = result?.error
+          ? result.error === 'CredentialsSignin'
+            ? 'Invalid email or password.'
+            : result.error
+          : null
         return {
           data: result?.ok ? { user: result } : null,
-          error: result?.error ? { message: 'Invalid email or password.' } : null,
+          error: message ? { message } : null,
         }
       },
-      async signUp({ email, password }: { email: string; password: string }) {
+      async signUp({
+        email,
+        password,
+        confirmPassword,
+      }: {
+        email: string
+        password: string
+        confirmPassword?: string
+      }) {
         const res = await fetch('/api/auth/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email, password, confirmPassword }),
         })
         const payload = await res.json()
         if (!res.ok) {
           return { data: null, error: { message: payload?.error || 'Could not create account.' } }
         }
-        const result = await signIn('credentials', {
-          redirect: false,
-          email,
-          password,
-        })
         return {
-          data: result?.ok ? { user: payload.user } : null,
-          error: result?.error ? { message: 'Account created, but sign-in failed.' } : null,
+          data: payload,
+          error: null,
         }
       },
       async signOut() {

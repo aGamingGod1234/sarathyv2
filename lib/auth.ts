@@ -43,6 +43,10 @@ const providers: NextAuthOptions['providers'] = [
       const valid = await bcrypt.compare(password, user.password_hash)
       if (!valid) return null
 
+      if (!user.emailVerified) {
+        throw new Error('Please verify your email before signing in.')
+      }
+
       await ensureProfile(user)
 
       return {
