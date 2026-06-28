@@ -201,6 +201,61 @@ export default function LandingPage() {
           revert: () => void
         }
       | undefined
+    const root = rootRef.current
+    const glassNav = root?.querySelector<HTMLElement>('.liquid-glass-nav')
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let glassFrame = 0
+    let settleTimer: number | undefined
+
+    const setGlassReaction = (x: number, y: number, opacity: number) => {
+      if (!glassNav || prefersReducedMotion) return
+
+      window.cancelAnimationFrame(glassFrame)
+      glassFrame = window.requestAnimationFrame(() => {
+        glassNav.style.setProperty('--glass-x', `${x.toFixed(2)}px`)
+        glassNav.style.setProperty('--glass-y', `${y.toFixed(2)}px`)
+        glassNav.style.setProperty('--glass-opacity', opacity.toFixed(2))
+      })
+
+      if (settleTimer) {
+        window.clearTimeout(settleTimer)
+      }
+
+      settleTimer = window.setTimeout(() => {
+        glassNav.style.setProperty('--glass-x', '0px')
+        glassNav.style.setProperty('--glass-y', '0px')
+        glassNav.style.setProperty('--glass-opacity', '0.15')
+      }, 380)
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!glassNav) return
+
+      const rect = glassNav.getBoundingClientRect()
+      const xRatio = (event.clientX - rect.left) / rect.width - 0.5
+      const yRatio = (event.clientY - rect.top) / rect.height - 0.5
+
+      setGlassReaction(xRatio * 16, yRatio * 8, 0.24)
+    }
+
+    const handlePointerLeave = () => {
+      setGlassReaction(0, 0, 0.15)
+    }
+
+    let previousScrollY = window.scrollY
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      const scrollDelta = Math.max(-18, Math.min(18, currentScrollY - previousScrollY))
+      previousScrollY = currentScrollY
+
+      setGlassReaction(scrollDelta * 0.35, scrollDelta * 0.18, 0.21)
+    }
+
+    if (glassNav && !prefersReducedMotion) {
+      glassNav.addEventListener('pointermove', handlePointerMove)
+      glassNav.addEventListener('pointerleave', handlePointerLeave)
+      window.addEventListener('scroll', handleScroll, { passive: true })
+    }
 
     Promise.all([import('gsap'), import('gsap/ScrollTrigger')]).then(([gsapModule, scrollModule]) => {
       const gsap = gsapModule.gsap
@@ -337,7 +392,18 @@ export default function LandingPage() {
       })
     })
 
-    return () => media?.revert()
+    return () => {
+      if (glassNav) {
+        glassNav.removeEventListener('pointermove', handlePointerMove)
+        glassNav.removeEventListener('pointerleave', handlePointerLeave)
+      }
+      window.removeEventListener('scroll', handleScroll)
+      window.cancelAnimationFrame(glassFrame)
+      if (settleTimer) {
+        window.clearTimeout(settleTimer)
+      }
+      media?.revert()
+    }
   }, [])
 
   return (
@@ -356,15 +422,15 @@ export default function LandingPage() {
             <feColorMatrix
               in="noise"
               type="matrix"
-              values="1.6 0 0 0 -0.22 0 1.35 0 0 -0.16 0 0 1.55 0 -0.2 0 0 0 1 0"
+              values="1.3 0 0 0 -0.11 0 1.18 0 0 -0.08 0 0 1.28 0 -0.1 0 0 0 1 0"
               result="warpedNoise"
             />
-            <feGaussianBlur in="warpedNoise" stdDeviation="0.65" result="softNoise" />
-            <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="132" xChannelSelector="R" yChannelSelector="G" />
+            <feGaussianBlur in="warpedNoise" stdDeviation="0.33" result="softNoise" />
+            <feDisplacementMap in="SourceGraphic" in2="softNoise" scale="66" xChannelSelector="R" yChannelSelector="G" />
           </filter>
           <filter id="liquid-glass-surface" x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
             <feTurbulence type="fractalNoise" baseFrequency="0.018 0.09" numOctaves="2" seed="13" result="surfaceNoise" />
-            <feDisplacementMap in="SourceGraphic" in2="surfaceNoise" scale="68" xChannelSelector="R" yChannelSelector="B" />
+            <feDisplacementMap in="SourceGraphic" in2="surfaceNoise" scale="34" xChannelSelector="R" yChannelSelector="B" />
           </filter>
         </defs>
       </svg>
