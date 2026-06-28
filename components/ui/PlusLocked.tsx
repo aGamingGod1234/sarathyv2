@@ -29,11 +29,11 @@ export default function PlusLocked({
           <h1 className="font-fraunces text-3xl font-semibold leading-tight text-ink">{title}</h1>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-3">{body}</p>
           <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto]">
-            <Link href="/profile/plus" className="btn-primary">
+            <Link href="/app/profile/plus" className="btn-primary">
               View Plus
               <ChevronRight className="h-4 w-4" />
             </Link>
-            <Link href="/story" className="btn-secondary">
+            <Link href="/app/story" className="btn-secondary">
               Back to tools
             </Link>
           </div>

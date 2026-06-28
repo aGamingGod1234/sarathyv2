@@ -52,6 +52,105 @@
     font-family: 'Fraunces', serif;
   }
 
+  .liquid-glass-nav {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    border-radius: 26px;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0)),
+      radial-gradient(circle at 16% 0%, rgba(255, 255, 255, 0.11), transparent 34%),
+      radial-gradient(circle at 84% 100%, rgba(30, 10, 46, 0.15), transparent 44%),
+      linear-gradient(96deg, rgba(249, 115, 22, 0.04), rgba(233, 248, 240, 0.04), rgba(255, 255, 255, 0));
+    box-shadow:
+      0 30px 78px rgba(10, 4, 18, 0.26),
+      inset 0 1px 0 rgba(255, 255, 255, 0.92),
+      inset 0 -1px 0 rgba(30, 10, 46, 0.2),
+      inset 18px 0 42px rgba(255, 255, 255, 0.14),
+      inset -26px 0 52px rgba(30, 10, 46, 0.22);
+    backdrop-filter: blur(3px) saturate(3.8) contrast(1.52) brightness(1.03);
+    backdrop-filter: url("#liquid-glass-refraction") blur(3px) saturate(3.8) contrast(1.52) brightness(1.03);
+    -webkit-backdrop-filter: blur(3px) saturate(3.8) contrast(1.52) brightness(1.03);
+    will-change: backdrop-filter;
+  }
+
+  .liquid-glass-nav::before {
+    content: '';
+    position: absolute;
+    inset: -64% -22%;
+    z-index: 0;
+    background:
+      linear-gradient(111deg, transparent 8%, rgba(255, 255, 255, 0.13) 30%, transparent 48%),
+      repeating-linear-gradient(103deg, rgba(255, 255, 255, 0) 0 22px, rgba(255, 255, 255, 0.034) 23px 24px, rgba(255, 255, 255, 0) 25px 58px),
+      conic-gradient(from 232deg at 54% 48%, rgba(255, 255, 255, 0.04), rgba(249, 115, 22, 0.1), rgba(16, 185, 129, 0.1), rgba(255, 255, 255, 0.035));
+    filter: url("#liquid-glass-surface") blur(0.2px);
+    backdrop-filter: url("#liquid-glass-surface") blur(1.35px) saturate(3.45) contrast(1.48);
+    -webkit-backdrop-filter: blur(1.35px) saturate(3.45) contrast(1.48);
+    mix-blend-mode: screen;
+    opacity: 0.3;
+    pointer-events: none;
+    transform: translate3d(-12%, 0, 0) rotate(0.001deg);
+    animation: liquidGlassSweep 11s ease-in-out infinite alternate;
+  }
+
+  .liquid-glass-nav::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.085), transparent 42%, rgba(255, 255, 255, 0.02)),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.16), transparent 13%, transparent 84%, rgba(255, 255, 255, 0.12));
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+      inset 0 18px 32px rgba(255, 255, 255, 0.11),
+      inset 0 -24px 46px rgba(30, 10, 46, 0.22);
+    pointer-events: none;
+  }
+
+  .liquid-glass-nav > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .shader-gradient-bg {
+    position: absolute;
+    inset: -12%;
+    background:
+      linear-gradient(118deg, transparent 0 28%, rgba(249, 115, 22, 0.08) 35%, rgba(249, 115, 22, 0.64) 47%, rgba(255, 196, 125, 0.38) 54%, transparent 66%),
+      linear-gradient(64deg, transparent 0 38%, rgba(16, 185, 129, 0.12) 49%, rgba(16, 185, 129, 0.44) 62%, rgba(233, 248, 240, 0.22) 70%, transparent 82%),
+      linear-gradient(160deg, rgba(30, 10, 46, 0.98) 0%, rgba(8, 11, 18, 0.98) 41%, rgba(7, 35, 35, 0.96) 68%, rgba(8, 11, 18, 0.98) 100%);
+    background-size: 118% 118%, 112% 112%, 100% 100%;
+    background-position: 43% 54%, 54% 47%, center;
+    filter: saturate(1.16) contrast(1.08);
+    transform: translate3d(0, 0, 0) scale(1.04);
+    animation: shaderGradientDrift 16s ease-in-out infinite alternate;
+  }
+
+  .shader-gradient-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(118deg, transparent 0 34px, rgba(255, 255, 255, 0.07) 35px 36px, transparent 37px 74px),
+      linear-gradient(118deg, transparent 0 37%, rgba(255, 255, 255, 0.18) 47%, transparent 58%);
+    mask-image: linear-gradient(90deg, transparent, #000 16%, #000 76%, transparent);
+    mix-blend-mode: soft-light;
+    opacity: 0.46;
+  }
+
+  .shader-gradient-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(8, 11, 18, 0.2), rgba(8, 11, 18, 0.1) 36%, rgba(8, 11, 18, 0.78)),
+      linear-gradient(90deg, rgba(8, 11, 18, 0.78), rgba(8, 11, 18, 0.18) 26%, transparent 50%, rgba(8, 11, 18, 0.7));
+  }
+
   .safe-number {
     font-family: 'Fraunces', serif;
     font-weight: 600;
@@ -196,19 +295,23 @@
 
     .tab-brand {
       display: flex;
-      height: 48px;
-      width: 48px;
+      height: 52px;
+      width: 52px;
       align-items: center;
       justify-content: center;
       align-self: center;
-      border-radius: 16px;
-      background: var(--plum);
-      color: white;
-      font-family: 'Fraunces', serif;
-      font-size: 22px;
-      font-weight: 700;
+      border-radius: 17px;
       text-decoration: none;
       margin-bottom: 8px;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+
+    .tab-brand:hover {
+      opacity: 0.9;
+    }
+
+    .tab-brand:active {
+      transform: translateY(1px);
     }
 
     .tab-item {
@@ -347,6 +450,38 @@
 @keyframes wordReveal {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes liquidGlassSweep {
+  from {
+    transform: translate3d(-14%, -4%, 0) rotate(0.001deg);
+  }
+  to {
+    transform: translate3d(12%, 5%, 0) rotate(0.001deg);
+  }
+}
+
+@keyframes shaderGradientDrift {
+  0% {
+    background-position: 37% 58%, 59% 43%, center;
+    transform: translate3d(-1%, -0.6%, 0) scale(1.04) rotate(0.001deg);
+  }
+
+  50% {
+    background-position: 45% 52%, 53% 49%, center;
+  }
+
+  100% {
+    background-position: 51% 47%, 47% 55%, center;
+    transform: translate3d(1%, 0.6%, 0) scale(1.06) rotate(0.001deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-glass-nav::before,
+  .shader-gradient-bg {
+    animation: none;
+  }
 }
 
 /* XP float animation */

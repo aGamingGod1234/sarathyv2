@@ -7,6 +7,10 @@
     "build": "prisma generate && next build",
     "postbuild": "node scripts/prepare-standalone.js",
     "start": "node .next/standalone/server.js",
+    "remotion": "remotion studio src/remotion/index.ts",
+    "video:studio": "remotion studio src/remotion/index.ts",
+    "video:still": "remotion still src/remotion/index.ts SarathyPromo out/sarathy-promo-frame.png --scale=0.25 --frame=600",
+    "video:render": "remotion render src/remotion/index.ts SarathyPromo out/sarathy-promo.mp4",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy"
   },
@@ -16,6 +20,7 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
+    "gsap": "^3.15.0",
     "lucide-react": "^0.446.0",
     "next": "^14.2.35",
     "next-auth": "^4.24.14",
@@ -24,12 +29,14 @@
     "tailwind-merge": "^2.5.2"
   },
   "devDependencies": {
+    "@remotion/cli": "^4.0.484",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.0.1",
     "postcss": "^8",
     "prisma": "^6.19.3",
+    "remotion": "^4.0.484",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }

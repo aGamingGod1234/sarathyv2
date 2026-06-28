@@ -8,8 +8,13 @@ const jakarta = Plus_Jakarta_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Sarathy - Your money companion',
-  description: 'Know if you are financially safe today, in 10 seconds.',
+  title: 'Sarathy - Money clarity for university life in Singapore',
+  description: 'A personalized finance companion for university students managing spending, bills, goals, and money stress.',
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    shortcut: ['/icon.svg'],
+    apple: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+  },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,

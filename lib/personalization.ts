@@ -288,7 +288,7 @@ export function getSarathyInbox(
         ? `${formatCurrency(todaySpent, currency)} is already logged today. Pause non-essential spending and check the plan.`
         : `${formatCurrency(safeData.safeToSpend, currency)} is marked safe. A 20-second check can keep the plan steady.`,
       actionLabel: 'Open money check',
-      href: '/check',
+      href: '/app/check',
       icon: 'alert',
       tone: 'danger',
     })
@@ -298,7 +298,7 @@ export function getSarathyInbox(
       title: 'Today needs a lighter touch',
       body: `${formatCurrency(safeData.safeToSpend, currency)} is safe today. Sarathy can help decide what is worth it.`,
       actionLabel: 'Ask before buying',
-      href: '/check',
+      href: '/app/check',
       icon: 'clock',
       tone: 'warning',
     })
@@ -310,7 +310,7 @@ export function getSarathyInbox(
       title: `${topCategory.category} is leading this month`,
       body: `${topCategory.percentage}% of spending is here. That is high enough to review before the next purchase.`,
       actionLabel: 'Open insight',
-      href: '/insights',
+      href: '/app/insights',
       icon: 'wallet',
       tone: 'warning',
     })
@@ -322,7 +322,7 @@ export function getSarathyInbox(
       title: `${dueSoon.name} is coming up`,
       body: `${formatCurrency(dueSoon.amount, currency)} is already part of the protected plan.`,
       actionLabel: 'Review fixed costs',
-      href: '/fixed',
+      href: '/app/fixed',
       icon: 'clock',
       tone: 'warning',
     })

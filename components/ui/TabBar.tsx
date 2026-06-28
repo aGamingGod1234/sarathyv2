@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BookOpen, Home, MessageCircle, UserRound, UsersRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { BrandMark } from '@/components/ui/BrandLogo'
 
 type TabId = 'home' | 'sarathy' | 'circles' | 'story' | 'profile'
 
@@ -11,30 +12,30 @@ interface Props {
 }
 
 const tabs: Array<{ id: TabId; href: string; label: string; icon: LucideIcon }> = [
-  { id: 'home', href: '/home', label: 'Today', icon: Home },
-  { id: 'circles', href: '/circles', label: 'Circles', icon: UsersRound },
-  { id: 'sarathy', href: '/sarathy', label: 'Sarathy', icon: MessageCircle },
-  { id: 'story', href: '/story', label: 'Story', icon: BookOpen },
-  { id: 'profile', href: '/profile', label: 'Profile', icon: UserRound },
+  { id: 'home', href: '/app/home', label: 'Today', icon: Home },
+  { id: 'circles', href: '/app/circles', label: 'Circles', icon: UsersRound },
+  { id: 'sarathy', href: '/app/sarathy', label: 'Sarathy', icon: MessageCircle },
+  { id: 'story', href: '/app/story', label: 'Story', icon: BookOpen },
+  { id: 'profile', href: '/app/profile', label: 'Profile', icon: UserRound },
 ]
 
 function getActiveTab(pathname: string): TabId {
-  if (pathname.startsWith('/circles')) return 'circles'
-  if (pathname.startsWith('/sarathy')) return 'sarathy'
+  if (pathname.startsWith('/app/circles')) return 'circles'
+  if (pathname.startsWith('/app/sarathy')) return 'sarathy'
   if (
-    pathname.startsWith('/story') ||
-    pathname.startsWith('/future') ||
-    pathname.startsWith('/biases') ||
-    pathname.startsWith('/insights') ||
-    pathname.startsWith('/mydata')
+    pathname.startsWith('/app/story') ||
+    pathname.startsWith('/app/future') ||
+    pathname.startsWith('/app/biases') ||
+    pathname.startsWith('/app/insights') ||
+    pathname.startsWith('/app/mydata')
   ) {
     return 'story'
   }
   if (
-    pathname.startsWith('/profile') ||
-    pathname.startsWith('/pricing') ||
-    pathname.startsWith('/marketplace') ||
-    pathname.startsWith('/fixed')
+    pathname.startsWith('/app/profile') ||
+    pathname.startsWith('/app/pricing') ||
+    pathname.startsWith('/app/marketplace') ||
+    pathname.startsWith('/app/fixed')
   ) {
     return 'profile'
   }
@@ -48,8 +49,8 @@ export default function TabBar({ active }: Props) {
 
   return (
     <nav className="tab-bar" aria-label="Primary navigation">
-      <Link href="/home" className="tab-brand" aria-label="Sarathy home">
-        S
+      <Link href="/app/home" className="tab-brand" aria-label="Sarathy home">
+        <BrandMark decorative className="h-12 w-12" />
       </Link>
       {tabs.map(tab => {
         const Icon = tab.icon

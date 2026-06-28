@@ -30,7 +30,7 @@ export async function POST(req: Request) {
         {
           error: 'An account already exists for this email. Sign in instead, or use forgot password if you need a new password.',
           code: 'ACCOUNT_EXISTS',
-          action: '/login',
+          action: '/app/login',
         },
         { status: 409 },
       )
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
         {
           error: 'An account already exists for this email. Sign in instead, or use forgot password if you need a new password.',
           code: 'ACCOUNT_EXISTS',
-          action: '/login',
+          action: '/app/login',
         },
         { status: 409 },
       )
