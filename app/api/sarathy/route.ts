@@ -4,14 +4,14 @@ import { OPENAI_MODEL, generateWithOpenAI, isOpenAIConfigured, streamWithOpenAI 
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { calculateSafeToSpend, formatCurrency, getMonthEntries, groupEntriesByCategory } from '@/lib/calculations'
-import { getCurrentMonthDateRange } from '@/lib/dates'
+import { formatDateKey, getCurrentMonthDateRange, getLocalDateKey } from '@/lib/dates'
 import { finishAiUsage, reserveAiUsage } from '@/lib/ai-usage'
 import {
   lookupKnownProductPrice,
   shouldLookupProductPrice,
   type ProductPriceLookup,
 } from '@/lib/product-pricing'
-import type { BudgetEntry, FixedSpending, Profile } from '@/types'
+import type { BudgetEntry, FixedSpending, Goal, MoodLog, Profile } from '@/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +27,7 @@ const SARATHY_INSTRUCTIONS = [
   'Sound steady and personal, not like a bank, therapist, or generic chatbot.',
   'Use the user name, responsibility, money fear, currency, streak, and safe-to-spend context only when it feels natural.',
   'Never pretend to know data that was not provided. If a field is unknown, do not mention it.',
+  'If the user asks what they spent, what changed, or why safe-to-spend is low, use the provided transaction, category, fixed-cost, and safety-calculation data. Do not say you cannot see totals when those totals are in context.',
   'When numbers are provided, use them directly and explain what they mean in practical terms.',
   'If product price context is provided, use it before making an affordability call. Mention the source label briefly.',
   'If the user asks about a product without a price and no reliable price is available, ask for a link or exact price instead of guessing.',
@@ -52,30 +53,100 @@ function normalizeAssistantMessage(message: string) {
     .trim()
 }
 
-function buildContextBlock({
-  profile,
-  safeData,
-  monthSpent,
-  topCategory,
-}: {
-  profile: Profile
-  safeData: ReturnType<typeof calculateSafeToSpend>
-  monthSpent: number
-  topCategory?: string | null
-}) {
+function listLines(lines: string[], empty = 'none') {
+  return lines.length ? lines.join('\n') : empty
+}
+
+function formatEntryLine(entry: BudgetEntry, currency: string) {
+  const description = entry.description?.trim()
+  return [
+    `- ${entry.entry_date}`,
+    entry.category,
+    formatCurrency(entry.amount, currency),
+    description ? `(${description})` : '',
+  ].filter(Boolean).join(' ')
+}
+
+function formatFixedLine(item: FixedSpending, currency: string) {
+  const due = item.due_day ? ` due day ${item.due_day}` : ''
+  return `- ${item.name}: ${formatCurrency(item.amount, currency)}${due}`
+}
+
+function formatGoalLine(goal: Goal, currency: string) {
+  return `- ${goal.name}: ${formatCurrency(goal.current_amount, currency)} of ${formatCurrency(goal.target_amount, currency)}${goal.deadline ? ` by ${goal.deadline}` : ''}`
+}
+
+function formatMoodLine(mood: MoodLog) {
+  return `- ${mood.entry_date}: ${mood.mood}`
+}
+
+function buildContextBlock(context: NonNullable<Awaited<ReturnType<typeof loadMoneyContext>>>) {
+  const { profile, safeData, monthSpent, categories, entries, recentEntries, fixedSpending, goals, moodLogs } = context
+  const currency = profile.primary_currency || safeData.currency || 'SGD'
+  const todayKey = getLocalDateKey()
+  const todayEntries = entries.filter(entry => entry.entry_date === todayKey)
+  const todaySpent = todayEntries.reduce((sum, entry) => sum + entry.amount, 0)
+  const todayOverBy = Math.max(0, todaySpent - safeData.dailyAllowance)
+  const topCategory = categories[0]
+  const monthCategoryLines = categories
+    .slice(0, 10)
+    .map(category => `- ${category.category}: ${formatCurrency(category.total, currency)} (${category.percentage}%)`)
+  const recentEntryLines = recentEntries
+    .slice(0, 60)
+    .map(entry => formatEntryLine(entry, currency))
+  const todayEntryLines = todayEntries
+    .slice(0, 30)
+    .map(entry => formatEntryLine(entry, currency))
+
   return [
     `Name: ${compactValue(profile.name)}`,
     `Tone: ${compactValue(profile.companion_vibe)}`,
+    `Plan tier: ${compactValue(profile.plan_tier || 'free')}`,
     `Currency: ${compactValue(profile.primary_currency)}`,
+    `Current country: ${compactValue(profile.current_country)}`,
+    `Home country or roots: ${compactValue(profile.home_country)}`,
+    `User status tags: ${profile.user_types?.length ? profile.user_types.join(', ') : 'unknown'}`,
+    `Income timing: ${compactValue(profile.income_timing)}`,
+    `Total money stated during setup: ${compactValue(profile.total_money)}`,
     `Monthly plan: ${compactValue(profile.planning_amount)}`,
-    `Spent this period: ${compactValue(monthSpent)}`,
-    `Safe today: ${compactValue(safeData.safeToSpend)}`,
+    `Monthly spend so far: ${formatCurrency(monthSpent, currency)}`,
+    `Fixed costs still due: ${formatCurrency(safeData.fixedLeft, currency)}`,
+    `Safety buffer: ${formatCurrency(safeData.buffer, currency)}`,
+    `Spent before today: ${formatCurrency(safeData.spentBeforeToday, currency)}`,
+    `Today spent total: ${formatCurrency(todaySpent, currency)}`,
+    `Today daily allowance: ${formatCurrency(safeData.dailyAllowance, currency)}`,
+    `Today safe-to-spend remaining: ${formatCurrency(safeData.safeToSpend, currency)}`,
+    `Today overspent by: ${formatCurrency(todayOverBy, currency)}`,
+    `Free to use for rest of month: ${formatCurrency(safeData.freeToUse, currency)}`,
     `Days remaining: ${compactValue(safeData.daysLeft)}`,
     `Budget status: ${compactValue(safeData.status)}`,
-    `Top category this month: ${compactValue(topCategory)}`,
+    `Top category this month: ${topCategory ? `${topCategory.category} at ${formatCurrency(topCategory.total, currency)} (${topCategory.percentage}%)` : 'unknown'}`,
     `Money fear: ${compactValue(profile.money_fear)}`,
     `Responsible for: ${compactValue(profile.responsible_for)}`,
     `Login streak: ${compactValue(profile.daily_login_streak)}`,
+    '',
+    `Today transactions (${todayEntries.length}, ${formatDateKey(todayKey, 'en-SG', { day: 'numeric', month: 'short', year: 'numeric' })}):`,
+    listLines(todayEntryLines),
+    todayEntries.length > todayEntryLines.length ? `Today transaction list truncated after ${todayEntryLines.length} items.` : '',
+    '',
+    'Current-month category totals:',
+    listLines(monthCategoryLines),
+    '',
+    `Recent transactions available to Sarathy (${recentEntries.length}, newest first):`,
+    listLines(recentEntryLines),
+    recentEntries.length > recentEntryLines.length ? `Recent transaction list truncated after ${recentEntryLines.length} items.` : '',
+    '',
+    'Active fixed costs:',
+    listLines(fixedSpending.slice(0, 20).map(item => formatFixedLine(item, currency))),
+    fixedSpending.length > 20 ? 'Fixed cost list truncated after 20 items.' : '',
+    '',
+    'Goals:',
+    listLines(goals.slice(0, 12).map(goal => formatGoalLine(goal, currency))),
+    goals.length > 12 ? 'Goal list truncated after 12 items.' : '',
+    '',
+    'Recent mood logs:',
+    listLines(moodLogs.slice(0, 14).map(formatMoodLine)),
+    moodLogs.length > 14 ? 'Mood list truncated after 14 items.' : '',
   ].join('\n')
 }
 
@@ -115,15 +186,29 @@ function buildPriceBlock(price: ProductPriceLookup | null, targetCurrency: strin
 async function loadMoneyContext(userId: string) {
   const { monthStart, nextMonthStart } = getCurrentMonthDateRange()
 
-  const [profile, entries, fixedSpending, history] = await Promise.all([
+  const [profile, entries, recentEntries, fixedSpending, goals, moodLogs, history] = await Promise.all([
     prisma.profile.findUnique({ where: { id: userId } }),
     prisma.budgetEntry.findMany({
       where: { user_id: userId, entry_date: { gte: monthStart, lt: nextMonthStart } },
-      orderBy: { created_at: 'desc' },
+      orderBy: [{ entry_date: 'desc' }, { created_at: 'desc' }],
+    }),
+    prisma.budgetEntry.findMany({
+      where: { user_id: userId },
+      orderBy: [{ entry_date: 'desc' }, { created_at: 'desc' }],
+      take: 80,
     }),
     prisma.fixedSpending.findMany({
       where: { user_id: userId, is_active: true },
       orderBy: { created_at: 'desc' },
+    }),
+    prisma.goal.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+    }),
+    prisma.moodLog.findMany({
+      where: { user_id: userId },
+      orderBy: { entry_date: 'desc' },
+      take: 30,
     }),
     prisma.chatMessage.findMany({
       where: { user_id: userId },
@@ -136,7 +221,10 @@ async function loadMoneyContext(userId: string) {
 
   const typedProfile = profile as unknown as Profile
   const typedEntries = entries as unknown as BudgetEntry[]
+  const typedRecentEntries = recentEntries as unknown as BudgetEntry[]
   const typedFixed = fixedSpending as unknown as FixedSpending[]
+  const typedGoals = goals as unknown as Goal[]
+  const typedMoodLogs = moodLogs as unknown as MoodLog[]
   const safeData = calculateSafeToSpend(typedProfile, typedEntries, typedFixed)
   const monthEntries = getMonthEntries(typedEntries)
   const categories = groupEntriesByCategory(monthEntries)
@@ -145,7 +233,10 @@ async function loadMoneyContext(userId: string) {
   return {
     profile: typedProfile,
     entries: typedEntries,
+    recentEntries: typedRecentEntries,
     fixedSpending: typedFixed,
+    goals: typedGoals,
+    moodLogs: typedMoodLogs,
     safeData,
     monthSpent,
     categories,
@@ -169,19 +260,13 @@ function buildPrompt({
   wantsLookup: boolean
 }) {
   if (!context) return message
-  const topCategory = context.categories[0]?.category
   const targetCurrency = context.profile.primary_currency || 'SGD'
 
   return [
     `User message: ${message}`,
     '',
     'Current user money context:',
-    buildContextBlock({
-      profile: context.profile,
-      safeData: context.safeData,
-      monthSpent: context.monthSpent,
-      topCategory,
-    }),
+    buildContextBlock(context),
     '',
     'Product price context:',
     buildPriceBlock(price, targetCurrency, wantsLookup),

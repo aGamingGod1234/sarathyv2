@@ -32,7 +32,7 @@ export const PLAN_DEFINITIONS: Record<PlanTier, PlanDefinition> = {
       'Safe-to-spend check',
       'Basic transaction logging',
       'Starter goals and money story',
-      'Limited AI companion history',
+      'Full current money context in chat',
     ],
   },
   plus: {
@@ -56,10 +56,10 @@ export const PLAN_DEFINITIONS: Record<PlanTier, PlanDefinition> = {
 export const PLAN_FEATURES: PlanFeature[] = [
   {
     id: 'ai-memory',
-    title: 'Sarathy memory',
-    description: 'The companion remembers more context so advice feels continuous instead of one-off.',
-    free: 'Short recent chat context',
-    plus: 'Longer memory and richer personal recall',
+    title: 'Sarathy context and memory',
+    description: 'The companion can use your real app data for direct, practical answers.',
+    free: 'Full current profile, budget, transactions, fixed costs, goals, and mood context',
+    plus: 'Longer historical memory and richer personal recall',
   },
   {
     id: 'imports',
@@ -94,4 +94,3 @@ export const PLAN_FEATURES: PlanFeature[] = [
 export function getPlanDefinition(tier?: string | null) {
   return tier === 'plus' ? PLAN_DEFINITIONS.plus : PLAN_DEFINITIONS.free
 }
-

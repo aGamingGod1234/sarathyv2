@@ -108,6 +108,8 @@ export default function SarathyPage() {
   const [isAnxious, setIsAnxious] = useState(false)
   const [todaySignal, setTodaySignal] = useState<{
     safeToSpend: number
+    todaySpent: number
+    dailyAllowance: number
     currency: string
     status: string
     topCategory?: string
@@ -136,6 +138,8 @@ export default function SarathyPage() {
         setProfile(loadedProfile)
         setTodaySignal({
           safeToSpend: safeData.safeToSpend,
+          todaySpent: safeData.todaySpent,
+          dailyAllowance: safeData.dailyAllowance,
           currency: safeData.currency,
           status: safeData.status,
           topCategory: monthCategories[0]?.category,
@@ -316,13 +320,14 @@ export default function SarathyPage() {
   const firstName = getFirstName(profile)
   const quickChips = profile ? getSarathyQuickChips(profile) : FALLBACK_CHIPS
   const signalPrompt = todaySignal?.topCategory
-    ? `Review my safe-to-spend today. I have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend and ${todaySignal.topCategory} is my biggest category this month.`
+    ? `Review my safe-to-spend today. I spent ${formatCurrency(todaySignal.todaySpent, todaySignal.currency)} today, have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend, and ${todaySignal.topCategory} is my biggest category this month.`
     : todaySignal
-    ? `Review my safe-to-spend today. I have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend.`
+    ? `Review my safe-to-spend today. I spent ${formatCurrency(todaySignal.todaySpent, todaySignal.currency)} today and have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend.`
     : ''
   const suggestedChips = todaySignal
     ? [
         'Can I afford a purchase today?',
+        'What did I spend today?',
         'Check a product price in SGD',
         'What changed my safe-to-spend?',
         todaySignal.status === 'danger' ? 'What should I pause today?' : 'Help me decide before I buy',
@@ -360,7 +365,8 @@ export default function SarathyPage() {
                 Safe-to-spend today: {formatCurrency(todaySignal.safeToSpend, todaySignal.currency)}
               </p>
               <p className="truncate text-xs text-ink-3">
-                {todaySignal.topCategory ? `${todaySignal.topCategory} is leading this month` : 'Use this before buying, not as a target to spend'}
+                Spent today: {formatCurrency(todaySignal.todaySpent, todaySignal.currency)}
+                {todaySignal.dailyAllowance > 0 ? ` of ${formatCurrency(todaySignal.dailyAllowance, todaySignal.currency)} allowance` : ''}
               </p>
             </div>
             <button
