@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { signIn } from 'next-auth/react'
 import { Chrome, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
@@ -30,28 +29,27 @@ export default function LoginPage() {
     }
   }
 
-  const handleGoogleLogin = async () => {
-    setError('')
-    await signIn('google', { callbackUrl: '/home' })
-  }
-
   return (
     <div className="min-h-dvh bg-white">
       <main className="mx-auto flex min-h-dvh max-w-[480px] flex-col bg-white px-6 pb-8 pt-14">
         <div className="mb-10">
           <p className="font-fraunces text-4xl font-semibold text-plum">Sarathy</p>
           <h1 className="mb-2 mt-8 font-fraunces text-3xl font-semibold text-ink">Welcome back</h1>
-          <p className="text-sm text-ink-3">Choose Google or email. Sarathy will bring you back to your money loop.</p>
+          <p className="text-sm text-ink-3">Sign in with email. Sarathy will bring you back to your money loop.</p>
         </div>
 
         <button
           type="button"
-          onClick={handleGoogleLogin}
-          className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-line bg-white px-4 py-3.5 text-sm font-semibold text-ink shadow-sm"
+          disabled
+          className="mb-2 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl border border-line bg-slate-50 px-4 py-3.5 text-sm font-semibold text-ink-3 opacity-70 shadow-none"
         >
-          <Chrome className="h-4 w-4 text-saffron" />
+          <Chrome className="h-4 w-4 text-ink-3" />
           Continue with Google
+          <span className="rounded-full bg-ink-2/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-ink-3">
+            Paused
+          </span>
         </button>
+        <p className="mb-4 text-center text-xs text-ink-3">Google sign-in is temporarily unavailable.</p>
 
         <div className="mb-4 flex items-center gap-3">
           <span className="h-px flex-1 bg-line" />

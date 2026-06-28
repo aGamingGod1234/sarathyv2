@@ -23,11 +23,19 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 NEXTAUTH_SECRET=generate-a-long-random-secret
 NEXTAUTH_URL=https://your-railway-domain
 GROQ_API_KEY=...
+DEEPSEEK_API_KEY=...
 ```
 
-For Google sign-in, also set:
+`GROQ_API_KEY` powers receipt image scanning and is the first-choice AI provider. `DEEPSEEK_API_KEY` is the silent fallback for text-only statement categorization and uses `deepseek-v4-flash` with thinking disabled. If you want to override the model later, set:
 
 ```text
+DEEPSEEK_MODEL=deepseek-v4-flash
+```
+
+Google sign-in is intentionally paused. To turn it back on later, set all three values:
+
+```text
+GOOGLE_AUTH_ENABLED=true
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 ```

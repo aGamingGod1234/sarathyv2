@@ -55,7 +55,7 @@ const providers: NextAuthOptions['providers'] = [
   }),
 ]
 
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+if (process.env.GOOGLE_AUTH_ENABLED === 'true' && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   providers.push(
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -90,4 +90,3 @@ export const authOptions: NextAuthOptions = {
     },
   },
 }
-
