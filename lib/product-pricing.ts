@@ -13,13 +13,33 @@ export type ProductPriceLookup = {
 }
 
 const moneyPattern = /\b(s\$|sgd|usd|us\$|\$|eur|gbp|aud|cad|inr|rs)\s*\d|\b\d+(\.\d{1,2})?\s*(sgd|usd|eur|gbp|aud|cad|inr)\b/i
-const productSignalPattern = /\b(price|cost|buy|afford|subscription|plan|plus|pro|max|premium|claude|chatgpt|netflix|spotify|notion|figma|cursor|windsurf)\b/i
+const explicitLookupPattern = /\b(price|cost|how much|buy|purchase|order|get|afford|subscribe|subscription|pay for)\b/i
+const commercialSignalPattern = /\b(plan|plus|pro|max|premium|ultra|subscription|membership|iphone|ipad|macbook|airpods|playstation|xbox|nintendo|netflix|spotify|youtube|amazon|prime|adobe|canva|notion|figma|cursor|windsurf|chatgpt|claude|gemini|perplexity|vpn|sneakers|shoes|headphones|laptop|monitor|keyboard|mouse|phone|tablet)\b/i
+const coachingPromptPattern = /\b(help me|ground me|calm me|feel in control|safe-to-spend|safe to spend|what should i watch|what should i protect|money|budget|debt|income|salary|rent|family|anxious|stress|spending today)\b/i
+const genericAffordabilityPattern = /\b(can i afford this|can i afford it|afford this today|afford it today|can i buy this|can i buy it)\b/i
 const CLAUDE_MAX_SOURCE = 'https://support.claude.com/en/articles/11049741-what-is-the-max-plan'
 
 export function shouldLookupProductPrice(message: string) {
   const trimmed = message.trim()
   if (!trimmed || moneyPattern.test(trimmed)) return false
-  return productSignalPattern.test(trimmed) && trimmed.length <= 160
+  if (trimmed.length > 160) return false
+
+  if (genericAffordabilityPattern.test(trimmed) && !commercialSignalPattern.test(trimmed)) return false
+  if (explicitLookupPattern.test(trimmed)) return true
+  if (commercialSignalPattern.test(trimmed)) return true
+
+  const words = trimmed
+    .replace(/[^\w\s.-]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+
+  const looksLikeShortItem =
+    words.length >= 2 &&
+    words.length <= 7 &&
+    /[a-z]/i.test(trimmed) &&
+    !coachingPromptPattern.test(trimmed)
+
+  return looksLikeShortItem
 }
 
 export async function lookupKnownProductPrice(message: string, targetCurrency = 'SGD'): Promise<ProductPriceLookup | null> {
