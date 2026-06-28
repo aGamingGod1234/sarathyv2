@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/calculations'
 import { getRemittanceIntro } from '@/lib/personalization'
 import TabBar from '@/components/ui/TabBar'
+import PlusLocked from '@/components/ui/PlusLocked'
 
 const PROVIDERS: Array<{ name: string; fee: number; icon: LucideIcon }> = [
   { name: 'Wise', fee: 0.6, icon: CircleDollarSign },
@@ -109,7 +110,7 @@ export default function RemittancePage() {
       if (loadedProfile) setProfile(loadedProfile)
       setHistory(historyRes.data || [])
       setLoading(false)
-      fetchRate(loadedProfile)
+      if (loadedProfile?.plan_tier === 'plus') fetchRate(loadedProfile)
     }
     load()
   }, [])
@@ -215,8 +216,18 @@ export default function RemittancePage() {
     </div>
   )
 
+  if (profile?.plan_tier !== 'plus') {
+    return (
+      <PlusLocked
+        active="story"
+        title="Send money home is a Plus planning tool"
+        body="Remittance planning uses exchange rates, family support context, and guardrails, so it belongs in the deeper planning tier."
+      />
+    )
+  }
+
   return (
-    <div className="min-h-dvh bg-cream pb-24">
+    <div className="min-h-dvh bg-cream pb-24 md:pb-12 md:pl-32 md:pr-8 lg:pl-36">
       <div className="px-5 pt-12 pb-4">
         <div className="flex items-center gap-3 mb-1">
           <button onClick={() => router.back()} className="flex h-10 w-10 items-center justify-center rounded-xl text-ink-3" aria-label="Go back">
@@ -367,7 +378,7 @@ export default function RemittancePage() {
         )}
       </div>
 
-      <TabBar active="home" />
+      <TabBar active="story" />
     </div>
   )
 }

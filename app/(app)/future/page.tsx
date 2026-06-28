@@ -8,6 +8,7 @@ import { formatCurrency, groupEntriesByCategory } from '@/lib/calculations'
 import { getFutureIntro } from '@/lib/personalization'
 import { isDateKeyInCurrentMonth } from '@/lib/dates'
 import TabBar from '@/components/ui/TabBar'
+import PlusLocked from '@/components/ui/PlusLocked'
 
 type ScenarioOption = {
   key: 'current' | 'one' | 'two'
@@ -142,12 +143,22 @@ export default function FuturePage() {
     </div>
   )
 
+  if (profile?.plan_tier !== 'plus') {
+    return (
+      <PlusLocked
+        active="story"
+        title="Future you is a Plus planning tool"
+        body="Future scenarios need deeper memory and saved planning context. Starter still includes daily money checks and transaction logging."
+      />
+    )
+  }
+
   const proj = getProjection()
   const currency = (profile?.primary_currency || 'SGD').trim().toUpperCase()
   const fallbackIntro = getFutureIntro(profile)
 
   if (!proj) return (
-    <div className="min-h-dvh bg-cream px-5 pt-12">
+    <div className="min-h-dvh bg-cream px-5 pt-12 md:pb-12 md:pl-32 md:pr-8 lg:pl-36">
       <h1 className="font-fraunces text-2xl font-semibold text-ink mb-3">{fallbackIntro.title}</h1>
       <div className="card text-center py-8">
         <Sprout className="mx-auto mb-3 h-10 w-10 text-saffron" />
@@ -168,7 +179,7 @@ export default function FuturePage() {
   ]
 
   return (
-    <div className="min-h-dvh bg-cream pb-24">
+    <div className="min-h-dvh bg-cream pb-24 md:pb-12 md:pl-32 md:pr-8 lg:pl-36">
       <div className="px-5 pt-12 pb-4">
         <h1 className="font-fraunces text-2xl font-semibold text-ink mb-1">{intro.title}</h1>
         <p className="text-ink-3 text-sm">{intro.subtitle}</p>

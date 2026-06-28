@@ -154,7 +154,7 @@ export default function FixedCostsPage() {
   )
 
   return (
-    <div className="min-h-dvh bg-cream pb-24">
+    <div className="min-h-dvh bg-cream pb-24 md:pb-12 md:pl-32 md:pr-8 lg:pl-36">
       <div className="px-5 pt-12 pb-4">
         <div className="flex items-center justify-between mb-1">
           <h1 className="font-fraunces text-2xl font-semibold text-ink">
@@ -332,7 +332,7 @@ export default function FixedCostsPage() {
         </>
       )}
 
-      <TabBar active="profile" />
+      <TabBar active="story" />
     </div>
   )
 }

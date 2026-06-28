@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -10,15 +10,19 @@ import {
   Brain,
   Bus,
   CalendarClock,
+  ChevronLeft,
   ChevronRight,
   Clapperboard,
   CheckCircle2,
   Clock3,
+  Crown,
   FileText,
+  Gauge,
   GraduationCap,
   HeartHandshake,
   Home as HomeIcon,
   Import,
+  LockKeyhole,
   MessageCircle,
   MoreHorizontal,
   Pill,
@@ -49,7 +53,7 @@ import {
   getPersonalActionHelpers,
   getSarathyInbox,
 } from '@/lib/personalization'
-import { formatDateKey, getLocalDateKey, isDateKeyInCurrentMonth } from '@/lib/dates'
+import { formatDateKey, getLocalDateKey, isDateKeyInCurrentMonth, normalizeDateKey } from '@/lib/dates'
 import type { SarathyInboxItem } from '@/lib/personalization'
 import TabBar from '@/components/ui/TabBar'
 import MoodCheckIn from '@/components/home/MoodCheckIn'
@@ -94,20 +98,21 @@ const statusTone: Record<SafetyStatus, { text: string; bg: string; border: strin
 }
 
 type PersonalActionKey = keyof ReturnType<typeof getPersonalActionHelpers>
+type ToolTier = 'free' | 'plus'
 
-const primaryActions: Array<{ key: PersonalActionKey; href: string; label: string; icon: LucideIcon }> = [
-  { key: 'check', href: '/check', label: 'Money check', icon: Target },
-  { key: 'future', href: '/future', label: 'Future you', icon: CalendarClock },
-  { key: 'upload', href: '/upload', label: 'Import transactions', icon: Import },
+const primaryActions: Array<{ key: PersonalActionKey; href: string; label: string; icon: LucideIcon; tier: ToolTier }> = [
+  { key: 'check', href: '/check', label: 'Money check', icon: Target, tier: 'free' },
+  { key: 'upload', href: '/upload', label: 'Import transactions', icon: Import, tier: 'free' },
+  { key: 'fixed', href: '/fixed', label: 'Fixed costs', icon: FileText, tier: 'free' },
 ]
 
-const secondaryActions: Array<{ key: PersonalActionKey; href: string; label: string; icon: LucideIcon }> = [
-  { key: 'biases', href: '/biases', label: 'Money psychology', icon: Brain },
-  { key: 'insights', href: '/insights', label: 'Financial DNA', icon: Sparkles },
-  { key: 'mydata', href: '/mydata', label: 'My data', icon: BarChart3 },
-  { key: 'remittance', href: '/remittance', label: 'Send money home', icon: Send },
-  { key: 'marketplace', href: '/marketplace', label: 'Built for you', icon: WalletCards },
-  { key: 'fixed', href: '/fixed', label: 'Fixed costs', icon: FileText },
+const secondaryActions: Array<{ key: PersonalActionKey; href: string; label: string; icon: LucideIcon; tier: ToolTier }> = [
+  { key: 'future', href: '/future', label: 'Future you', icon: CalendarClock, tier: 'plus' },
+  { key: 'biases', href: '/biases', label: 'Money psychology', icon: Brain, tier: 'plus' },
+  { key: 'insights', href: '/insights', label: 'Financial DNA', icon: Sparkles, tier: 'plus' },
+  { key: 'remittance', href: '/remittance', label: 'Send money home', icon: Send, tier: 'plus' },
+  { key: 'marketplace', href: '/marketplace', label: 'Built for you', icon: WalletCards, tier: 'plus' },
+  { key: 'mydata', href: '/mydata', label: 'My data', icon: BarChart3, tier: 'free' },
 ]
 
 function CategoryIcon({ category }: { category: string }) {
@@ -208,6 +213,370 @@ function InboxRow({
   )
 }
 
+type DashboardPeriod = 'today' | 'week' | 'month'
+type NormalizedEntry = BudgetEntry & { dateKey: string; amount: number }
+
+const spendTone = {
+  safe: {
+    fill: '#10B981',
+    border: 'border-safe/25',
+    soft: 'bg-green-50',
+    text: 'text-safe',
+    panel: 'from-green-50 to-white',
+  },
+  warning: {
+    fill: '#F59E0B',
+    border: 'border-warning/25',
+    soft: 'bg-amber-50',
+    text: 'text-warning',
+    panel: 'from-amber-50 to-white',
+  },
+  danger: {
+    fill: '#F43F5E',
+    border: 'border-danger/25',
+    soft: 'bg-rose-50',
+    text: 'text-danger',
+    panel: 'from-rose-50 to-white',
+  },
+}
+
+const categoryBarColors = ['#F97316', '#1E0A2E', '#10B981', '#F59E0B', '#F43F5E', '#7A6254']
+
+function getDateFromKey(dateKey: string) {
+  return new Date(Number(dateKey.slice(0, 4)), Number(dateKey.slice(5, 7)) - 1, Number(dateKey.slice(8, 10)))
+}
+
+function isDateInSelectedMonth(dateKey: string, monthOffset: number) {
+  const now = new Date()
+  const selected = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+  const date = getDateFromKey(dateKey)
+  return date.getFullYear() === selected.getFullYear() && date.getMonth() === selected.getMonth()
+}
+
+function getMonthLabel(monthOffset: number) {
+  const now = new Date()
+  const selected = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+  return selected.toLocaleDateString('en-SG', { month: 'long', year: 'numeric' })
+}
+
+function isDateWithinLastSevenDays(dateKey: string) {
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const entryStart = getDateFromKey(dateKey)
+  const diffDays = Math.round((todayStart.getTime() - entryStart.getTime()) / (1000 * 60 * 60 * 24))
+  return diffDays >= 0 && diffDays <= 6
+}
+
+function getDashboardTone(percent: number) {
+  if (percent > 100) return spendTone.danger
+  if (percent >= 80) return spendTone.warning
+  return spendTone.safe
+}
+
+function UncappedSpendBar({ percent, color }: { percent: number; color: string }) {
+  const used = Number.isFinite(percent) ? Math.max(0, Math.round(percent)) : 0
+  const scale = Math.max(100, Math.ceil(Math.max(used, 1) / 25) * 25)
+  const fillWidth = Math.min(100, (used / scale) * 100)
+  const budgetLine = Math.min(100, (100 / scale) * 100)
+
+  return (
+    <div>
+      <div className="relative h-3 overflow-hidden rounded-md bg-cream-3">
+        <div
+          className="absolute inset-y-0 left-0 rounded-md transition-[width] duration-500"
+          style={{ width: `${fillWidth}%`, background: color }}
+        />
+        <div
+          className="absolute inset-y-0 w-0.5 bg-ink/45"
+          style={{ left: `calc(${budgetLine}% - 1px)` }}
+          aria-hidden="true"
+        />
+      </div>
+      <div className="mt-1 flex items-center justify-between text-[11px] text-ink-3">
+        <span>100% budget line</span>
+        <span className={used > 100 ? 'font-semibold text-danger' : ''}>{used}% used</span>
+      </div>
+    </div>
+  )
+}
+
+function SpendingDashboard({
+  entries,
+  safeData,
+  currency,
+}: {
+  entries: BudgetEntry[]
+  safeData: SafeToSpendData
+  currency: string
+}) {
+  const [period, setPeriod] = useState<DashboardPeriod>('today')
+  const [monthOffset, setMonthOffset] = useState(0)
+  const [category, setCategory] = useState('All')
+  const todayKey = getLocalDateKey()
+
+  const normalizedEntries = useMemo<NormalizedEntry[]>(
+    () => entries
+      .map(entry => {
+        const dateKey = normalizeDateKey(entry.entry_date)
+        const amount = Number(entry.amount)
+        return dateKey && Number.isFinite(amount)
+          ? { ...entry, dateKey, amount }
+          : null
+      })
+      .filter((entry): entry is NormalizedEntry => Boolean(entry)),
+    [entries],
+  )
+
+  const periodEntries = useMemo(() => normalizedEntries.filter(entry => {
+    if (period === 'today') return entry.dateKey === todayKey
+    if (period === 'week') return isDateWithinLastSevenDays(entry.dateKey)
+    return isDateInSelectedMonth(entry.dateKey, monthOffset)
+  }), [normalizedEntries, monthOffset, period, todayKey])
+
+  const categoryOptions = useMemo(() => {
+    const options = Array.from(new Set(periodEntries.map(entry => entry.category))).sort()
+    return ['All', ...options]
+  }, [periodEntries])
+
+  const activeCategory = categoryOptions.includes(category) ? category : 'All'
+  const filteredEntries = activeCategory === 'All'
+    ? periodEntries
+    : periodEntries.filter(entry => entry.category === activeCategory)
+  const spent = filteredEntries.reduce((sum, entry) => sum + entry.amount, 0)
+  const periodSpent = periodEntries.reduce((sum, entry) => sum + entry.amount, 0)
+  const monthSpendLimit = Math.max(0, safeData.planAmount - safeData.fixedLeft - safeData.buffer)
+  const periodBudget = period === 'today'
+    ? safeData.dailyAllowance
+    : period === 'week'
+    ? safeData.dailyAllowance * 7
+    : monthSpendLimit
+  const percent = periodBudget > 0 ? Math.round((spent / periodBudget) * 100) : spent > 0 ? 999 : 0
+  const overBy = Math.max(0, spent - periodBudget)
+  const left = Math.max(0, periodBudget - spent)
+  const tone = getDashboardTone(percent)
+  const periodLabel = period === 'today' ? 'Today' : period === 'week' ? 'Last 7 days' : getMonthLabel(monthOffset)
+  const budgetLabel = period === 'today'
+    ? 'Daily allowance'
+    : period === 'week'
+    ? '7-day allowance'
+    : 'Monthly spendable plan'
+
+  const categoryBreakdown = useMemo(() => {
+    const grouped = new Map<string, number>()
+    periodEntries.forEach(entry => grouped.set(entry.category, (grouped.get(entry.category) || 0) + entry.amount))
+    return Array.from(grouped.entries())
+      .map(([label, total], index) => ({
+        label,
+        total,
+        color: categoryBarColors[index % categoryBarColors.length],
+        percentage: periodSpent > 0 ? Math.round((total / periodSpent) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total)
+  }, [periodEntries, periodSpent])
+
+  const dailyBreakdown = useMemo(() => {
+    const grouped = new Map<string, number>()
+    filteredEntries.forEach(entry => grouped.set(entry.dateKey, (grouped.get(entry.dateKey) || 0) + entry.amount))
+    if (period === 'today' && !grouped.has(todayKey)) grouped.set(todayKey, 0)
+    return Array.from(grouped.entries())
+      .map(([dateKey, total]) => {
+        const dayPercent = safeData.dailyAllowance > 0
+          ? Math.round((total / safeData.dailyAllowance) * 100)
+          : total > 0 ? 999 : 0
+        return {
+          dateKey,
+          total,
+          percent: dayPercent,
+          overBy: Math.max(0, total - safeData.dailyAllowance),
+        }
+      })
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+  }, [filteredEntries, period, safeData.dailyAllowance, todayKey])
+
+  const daysOver = dailyBreakdown.filter(day => day.overBy > 0).length
+
+  return (
+    <section className="px-5 pt-4 md:px-8">
+      <div className={`overflow-hidden rounded-3xl border ${tone.border} bg-white shadow-[0_16px_44px_rgba(30,10,46,0.07)]`}>
+        <div className={`border-b border-line bg-gradient-to-br ${tone.panel} px-4 py-4 md:px-5`}>
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-plum shadow-sm">
+                <Gauge className="h-3.5 w-3.5" />
+                Spending dashboard
+              </div>
+              <h2 className="font-fraunces text-2xl font-semibold leading-tight text-ink">
+                {overBy > 0 ? 'You are over this budget.' : 'You are inside this budget.'}
+              </h2>
+              <p className="mt-1 text-sm text-ink-3">
+                {periodLabel} using {activeCategory === 'All' ? 'all expenditure types' : activeCategory}.
+              </p>
+            </div>
+            <div className={`rounded-2xl ${tone.soft} px-4 py-3 text-right`}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-3">Status</p>
+              <p className={`mt-1 text-lg font-bold ${tone.text}`}>
+                {overBy > 0 ? `Over by ${formatCurrency(overBy, currency)}` : `${formatCurrency(left, currency)} left`}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {(['today', 'week', 'month'] as const).map(option => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setPeriod(option)}
+                className={`rounded-2xl px-3 py-2 text-sm font-semibold transition-colors ${
+                  period === option
+                    ? 'bg-plum text-white'
+                    : 'bg-white text-ink-3 shadow-sm'
+                }`}
+              >
+                {option === 'today' ? 'Today' : option === 'week' ? '7 days' : 'Month'}
+              </button>
+            ))}
+          </div>
+
+          {period === 'month' && (
+            <div className="mt-3 flex items-center justify-between rounded-2xl bg-white px-3 py-2 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setMonthOffset(value => value - 1)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-ink-3 hover:bg-cream"
+                aria-label="Previous month"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <p className="text-sm font-semibold text-ink">{getMonthLabel(monthOffset)}</p>
+              <button
+                type="button"
+                onClick={() => setMonthOffset(value => Math.min(0, value + 1))}
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-ink-3 hover:bg-cream disabled:opacity-35"
+                aria-label="Next month"
+                disabled={monthOffset === 0}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {categoryOptions.map(option => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setCategory(option)}
+                className={`flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeCategory === option
+                    ? 'border-saffron bg-saffron text-white'
+                    : 'border-line bg-white text-ink-3'
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-3 px-4 py-4 md:grid-cols-4 md:px-5">
+          {[
+            { label: 'Spent', value: formatCurrency(spent, currency), tone: 'text-ink' },
+            { label: budgetLabel, value: formatCurrency(periodBudget, currency), tone: 'text-ink' },
+            { label: overBy > 0 ? 'Over budget' : 'Left', value: formatCurrency(overBy > 0 ? overBy : left, currency), tone: overBy > 0 ? 'text-danger' : 'text-safe' },
+            { label: 'Budget used', value: `${percent}%`, tone: percent > 100 ? 'text-danger' : percent >= 80 ? 'text-warning' : 'text-safe' },
+          ].map(item => (
+            <div key={item.label} className="rounded-2xl border border-line bg-cream/50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-3">{item.label}</p>
+              <p className={`mt-1 text-xl font-bold ${item.tone}`}>{item.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-4 pb-4 md:px-5">
+          <UncappedSpendBar percent={percent} color={tone.fill} />
+        </div>
+
+        <div className="grid gap-4 border-t border-line px-4 py-4 md:grid-cols-[1fr_1.1fr] md:px-5">
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-plum">Expenditure types</h3>
+              <span className="text-xs text-ink-3">{categoryBreakdown.length} types</span>
+            </div>
+            {categoryBreakdown.length === 0 ? (
+              <div className="rounded-2xl border border-line bg-cream px-4 py-5 text-sm text-ink-3">
+                No spending logged for this period.
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {categoryBreakdown.map(categoryItem => (
+                  <button
+                    key={categoryItem.label}
+                    type="button"
+                    onClick={() => setCategory(categoryItem.label)}
+                    className="rounded-2xl border border-line bg-white px-4 py-3 text-left transition-colors hover:bg-cream/70"
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: categoryItem.color }} />
+                        <span className="truncate text-sm font-semibold text-ink">{categoryItem.label}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-ink">{formatCurrency(categoryItem.total, currency)}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-cream-3">
+                      <div
+                        className="h-2 rounded-full"
+                        style={{ width: `${Math.min(100, Math.max(4, categoryItem.percentage))}%`, background: categoryItem.color }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] text-ink-3">{categoryItem.percentage}% of period spending</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-plum">Daily budget crossings</h3>
+              <span className={daysOver > 0 ? 'text-xs font-semibold text-danger' : 'text-xs text-ink-3'}>
+                {daysOver > 0 ? `${daysOver} over` : 'None over'}
+              </span>
+            </div>
+            <div className="grid gap-3">
+              {dailyBreakdown.map(day => {
+                const dayTone = getDashboardTone(day.percent)
+                return (
+                  <div key={day.dateKey} className={`rounded-2xl border ${day.overBy > 0 ? 'border-danger/25 bg-rose-50' : 'border-line bg-white'} px-4 py-3`}>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-ink">
+                          {formatDateKey(day.dateKey, 'en-SG', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </p>
+                        <p className="text-xs text-ink-3">
+                          Daily allowance {formatCurrency(safeData.dailyAllowance, currency)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-bold ${day.overBy > 0 ? 'text-danger' : 'text-ink'}`}>
+                          {formatCurrency(day.total, currency)}
+                        </p>
+                        <p className={`text-xs ${day.overBy > 0 ? 'font-semibold text-danger' : 'text-ink-3'}`}>
+                          {day.overBy > 0 ? `Over by ${formatCurrency(day.overBy, currency)}` : `${day.percent}% used`}
+                        </p>
+                      </div>
+                    </div>
+                    <UncappedSpendBar percent={day.percent} color={dayTone.fill} />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function HomePage() {
   const router = useRouter()
   const supabase = createClient()
@@ -296,9 +665,10 @@ export default function HomePage() {
   const currency = profile.primary_currency || 'SGD'
   const tone = statusTone[safeData.status]
   const firstName = getFirstName(profile)
-  const meterPercent = safeData.dailyAllowance <= 0
-    ? todaySpent > 0 ? 100 : 0
-    : Math.min(100, Math.round((todaySpent / safeData.dailyAllowance) * 100))
+  const todaySpendPercent = safeData.dailyAllowance <= 0
+    ? todaySpent > 0 ? 999 : 0
+    : Math.round((todaySpent / safeData.dailyAllowance) * 100)
+  const todayOverBy = Math.max(0, todaySpent - safeData.dailyAllowance)
   const monthBalance = (profile.planning_amount || 0) - monthTotal
   const monthlyRows = categories
   const personalNote = getHomePersonalization(profile, safeData, categories[0])
@@ -312,6 +682,7 @@ export default function HomePage() {
       : 'No important notes right now.',
   }
   const inboxPreview = inbox.items.slice(0, 2)
+  const hasPlus = profile.plan_tier === 'plus'
 
   const handleInboxAction = (item: SarathyInboxItem) => {
     setShowInbox(false)
@@ -384,10 +755,18 @@ export default function HomePage() {
             </p>
             <div className={`mt-5 flex items-center gap-2 ${tone.text}`}>
               <ShieldCheck className="h-4 w-4" />
-              <p className="text-sm font-semibold">{safeData.safetyLine}</p>
+              <p className="text-sm font-semibold">
+                {todayOverBy > 0 ? `Over today's safe amount by ${formatCurrency(todayOverBy, currency)}` : safeData.safetyLine}
+              </p>
             </div>
           </button>
         </header>
+
+        <SpendingDashboard
+          entries={entries}
+          safeData={safeData}
+          currency={currency}
+        />
 
         <section className="px-5 pt-4 md:px-8">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -406,23 +785,20 @@ export default function HomePage() {
               View all
             </button>
           </div>
-          <div className="grid gap-2">
-            {inboxPreview.map(item => (
-              <InboxRow
-                key={item.id}
-                item={item}
-                onAction={handleInboxAction}
-                onOpenHref={(href) => router.push(href)}
-                onNavigate={() => setShowInbox(false)}
-                compact
-              />
-            ))}
-            {inboxPreview.length === 0 && (
-              <div className="rounded-2xl border border-line bg-white px-4 py-4 text-sm text-ink-3">
-                No important notes right now.
-              </div>
-            )}
-          </div>
+          {inboxPreview.length > 0 && (
+            <div className="grid gap-2">
+              {inboxPreview.map(item => (
+                <InboxRow
+                  key={item.id}
+                  item={item}
+                  onAction={handleInboxAction}
+                  onOpenHref={(href) => router.push(href)}
+                  onNavigate={() => setShowInbox(false)}
+                  compact
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="px-5 pt-4 md:px-8">
@@ -441,12 +817,12 @@ export default function HomePage() {
                 <BarChart3 className="h-5 w-5" />
               </div>
             </div>
-            <div className="meter-bar">
-              <div
-                className="meter-fill"
-                style={{ width: `${meterPercent}%`, background: tone.accent }}
-              />
-            </div>
+            <UncappedSpendBar percent={todaySpendPercent} color={todayOverBy > 0 ? spendTone.danger.fill : tone.accent} />
+            <p className={`mt-2 text-xs font-semibold ${todayOverBy > 0 ? 'text-danger' : 'text-ink-3'}`}>
+              {todayOverBy > 0
+                ? `You crossed today's allowance by ${formatCurrency(todayOverBy, currency)}.`
+                : `${formatCurrency(Math.max(0, safeData.dailyAllowance - todaySpent), currency)} left for today.`}
+            </p>
           </div>
           <button
             type="button"
@@ -629,20 +1005,27 @@ export default function HomePage() {
           <div className="grid grid-cols-3 gap-3">
             {primaryActions.map(action => {
               const Icon = action.icon
+              const locked = action.tier === 'plus' && !hasPlus
 
               return (
                 <Link
                   key={action.href}
-                  href={action.href}
+                  href={locked ? '/profile/plus' : action.href}
                   className="flex min-h-[104px] flex-col justify-between rounded-2xl border border-line bg-white p-3 shadow-[0_8px_24px_rgba(30,10,46,0.04)]"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <Icon className="h-5 w-5 text-plum" />
-                    <ChevronRight className="h-4 w-4 text-ink-3" />
+                    {locked ? <LockKeyhole className="h-4 w-4 text-saffron" /> : <ChevronRight className="h-4 w-4 text-ink-3" />}
                   </div>
                   <div>
                     <p className="text-xs font-bold leading-snug text-ink">{action.label}</p>
                     <p className="mt-1 text-[11px] leading-snug text-ink-3">{actionHelpers[action.key]}</p>
+                    {locked && (
+                      <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-saffron-soft px-2 py-0.5 text-[10px] font-bold text-saffron">
+                        <Crown className="h-3 w-3" />
+                        Plus
+                      </span>
+                    )}
                   </div>
                 </Link>
               )
@@ -652,25 +1035,34 @@ export default function HomePage() {
 
         <section className="px-5 pt-5 md:px-8">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-plum">More money tools</h2>
-            <p className="text-xs text-ink-3">{secondaryActions.length} tools</p>
+            <div>
+              <h2 className="text-sm font-bold text-plum">Money tool suite</h2>
+              <p className="mt-1 text-xs text-ink-3">Starter tools stay open. Deeper planning is Plus.</p>
+            </div>
+            <Link href="/story" className="text-xs font-semibold text-saffron">View all</Link>
           </div>
           <div className="grid grid-cols-1 gap-2">
             {secondaryActions.map(action => {
               const Icon = action.icon
+              const locked = action.tier === 'plus' && !hasPlus
 
               return (
                 <Link
                   key={action.href}
-                  href={action.href}
-                  className="flex items-center justify-between rounded-2xl border border-line bg-white px-4 py-3"
+                  href={locked ? '/profile/plus' : action.href}
+                  className={`flex items-center justify-between rounded-2xl border bg-white px-4 py-3 ${locked ? 'border-saffron/20' : 'border-line'}`}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-cream text-plum">
-                      <Icon className="h-5 w-5" />
+                    <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${locked ? 'bg-saffron-soft text-saffron' : 'bg-cream text-plum'}`}>
+                      {locked ? <LockKeyhole className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-ink">{action.label}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold text-ink">{action.label}</p>
+                        {locked && (
+                          <span className="rounded-full bg-saffron-soft px-2 py-0.5 text-[10px] font-bold text-saffron">Plus</span>
+                        )}
+                      </div>
                       <p className="truncate text-xs text-ink-3">{actionHelpers[action.key]}</p>
                     </div>
                   </div>
