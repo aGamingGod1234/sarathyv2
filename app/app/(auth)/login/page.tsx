@@ -37,7 +37,7 @@ export default function LoginPage() {
         <div className="mb-10">
           <BrandLogo
             markClassName="h-12 w-12"
-            wordmarkClassName="font-fraunces text-4xl font-semibold text-plum"
+            wordmarkClassName="font-brand text-4xl font-semibold text-plum"
           />
           <h1 className="mb-2 mt-8 font-fraunces text-3xl font-semibold text-ink">Welcome back</h1>
           <p className="text-sm text-ink-3">Sign in with email. Sarathy will bring you back to your money loop.</p>

@@ -378,7 +378,7 @@ export default function LandingPage() {
               gapClassName="gap-2"
               markClassName="h-[26px] w-[26px] md:h-[29px] md:w-[29px]"
               markSize={29}
-              wordmarkClassName="font-fraunces text-[20px] font-semibold leading-none text-current md:text-[24px]"
+              wordmarkClassName="font-brand text-[20px] font-semibold leading-none text-current md:text-[24px]"
             />
           </Link>
           <div className="order-3 col-span-2 flex items-center justify-center gap-5 text-[12px] font-semibold text-current md:order-none md:col-span-1 md:gap-10 md:text-sm">
@@ -572,7 +572,7 @@ export default function LandingPage() {
                 <span className="inline-flex rounded-2xl bg-white/95 p-1.5 shadow-[0_16px_36px_rgba(0,0,0,0.34)] ring-1 ring-white/70">
                   <BrandMark decorative size={48} className="h-12 w-12 shrink-0" />
                 </span>
-                <span className="font-fraunces text-4xl font-semibold text-white">Sarathy</span>
+                <span className="font-brand text-4xl font-semibold text-white">Sarathy</span>
               </span>
               <p className="mt-4 text-sm leading-6 text-white/68">
                 Personalized money clarity for university students in Singapore.

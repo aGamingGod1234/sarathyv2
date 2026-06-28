@@ -37,8 +37,11 @@ const config: Config = {
         gold: '#FBBF24',
       },
       fontFamily: {
-        fraunces: ['Fraunces', 'serif'],
-        jakarta: ['"Plus Jakarta Sans"', 'sans-serif'],
+        sans: ['var(--font-sans)'],
+        display: ['var(--font-display)'],
+        brand: ['var(--font-brand)'],
+        fraunces: ['var(--font-display)'],
+        jakarta: ['var(--font-sans)'],
       },
     },
   },

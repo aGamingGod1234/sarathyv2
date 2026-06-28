@@ -89,7 +89,7 @@ export default function BrandLogo({
   gapClassName = 'gap-3',
   markClassName = 'h-10 w-10',
   markSize = 40,
-  wordmarkClassName = 'font-fraunces text-3xl font-semibold text-plum',
+  wordmarkClassName = 'font-brand text-3xl font-semibold text-plum',
   showWordmark = true,
 }: BrandLogoProps) {
   return (

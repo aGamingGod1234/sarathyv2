@@ -97,7 +97,7 @@ export default function WaitlistPage() {
         <BrandLogo
           className="mb-5"
           markClassName="h-11 w-11 rounded-[14px] ring-1 ring-white/15"
-          wordmarkClassName="font-fraunces text-3xl font-semibold text-white"
+          wordmarkClassName="font-brand text-3xl font-semibold text-white"
         />
         <p className="text-xs font-medium uppercase tracking-widest text-saffron mb-2">
           Early access

@@ -17,6 +17,10 @@
     --safe: #10B981;
     --danger: #F43F5E;
     --warning: #F59E0B;
+    --font-sans: "Suisse Intl", "Suisse Int'l", "Suisse International", "Neue Haas Grotesk Text", "Neue Haas Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-display: "PP Neue Montreal", "Neue Montreal", "GT America", "Founders Grotesk", "Neue Haas Grotesk Display", "Neue Haas Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-brand: "Founders Grotesk", "PP Neue Montreal", "GT America", "Neue Haas Grotesk Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-numeric: "GT America", "Neue Haas Grotesk Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
   }
 
   * {
@@ -31,6 +35,7 @@
     background-color: #FFFFFF;
     color: #1C0A00;
     min-height: 100dvh;
+    font-family: var(--font-sans);
   }
 
   button,
@@ -49,7 +54,7 @@
 
 @layer components {
   .font-fraunces {
-    font-family: 'Fraunces', serif;
+    font-family: var(--font-display);
   }
 
   .liquid-glass-nav {
@@ -152,7 +157,7 @@
   }
 
   .safe-number {
-    font-family: 'Fraunces', serif;
+    font-family: var(--font-numeric);
     font-weight: 600;
     font-size: clamp(3.25rem, 16vw, 4.75rem);
     line-height: 1;
@@ -217,7 +222,7 @@
     width: 100%;
     outline: none;
     transition: border-color 0.15s;
-    font-family: var(--font-jakarta);
+    font-family: var(--font-sans);
   }
 
   .input-field:focus {

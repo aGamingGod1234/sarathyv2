@@ -715,7 +715,7 @@ export default function HomePage() {
             <div>
               <BrandLogo
                 markClassName="h-12 w-12"
-                wordmarkClassName="font-fraunces text-4xl font-semibold text-plum"
+                wordmarkClassName="font-brand text-4xl font-semibold text-plum"
               />
               <p className="mt-3 text-xl font-semibold text-plum">Good morning, {firstName}</p>
               <p className="mt-1 text-sm text-ink-3">{safeData.safetyLine}</p>
