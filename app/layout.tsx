@@ -1,5 +1,20 @@
 import type { Metadata, Viewport } from 'next'
+import { Archivo, Instrument_Sans } from 'next/font/google'
 import './globals.css'
+
+const instrumentSans = Instrument_Sans({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-instrument-sans',
+  weight: ['400', '500', '600', '700'],
+})
+
+const archivo = Archivo({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-archivo',
+  weight: ['500', '600', '700', '800'],
+})
 
 export const metadata: Metadata = {
   title: 'Sarathy - Money clarity for university life in Singapore',
@@ -30,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${instrumentSans.variable} ${archivo.variable}`}>
       <body className="font-sans bg-cream antialiased">
         {children}
       </body>
