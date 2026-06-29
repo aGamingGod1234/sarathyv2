@@ -240,12 +240,17 @@ export default function UploadPage() {
         if (p) setCurrency(p.primary_currency || 'SGD')
       }
       const res = await fetch('/api/parse-statement', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ transactions: parsed }) })
-      const { categorized } = await res.json()
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        if (res.status === 401) router.replace('/app/login')
+        throw new Error(payload?.error || 'Could not categorize this statement.')
+      }
+      const { categorized } = payload
       setTxs(parsed.map((t,i) => {
         const c = categorized?.find((x:any) => x.index === i)
         return { ...t, category: c?.category || 'Other', description: c?.description || t.description, selected: true }
       }))
-    } catch { setError('Could not read this file.') }
+    } catch (err: any) { setError(err?.message || 'Could not read this file.') }
     finally { setParsing(false) }
   }
 
@@ -255,7 +260,11 @@ export default function UploadPage() {
     setSaving(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setError('Please sign in again.')
+        router.replace('/app/login')
+        return
+      }
       const { error: insertError } = await supabase.from('budget_entries').insert(sel.map(t => ({
         user_id: user.id, category: t.category, amount: t.amount,
         description: t.description, entry_date: t.date || getLocalDateKey(), logged_via: 'statement'
@@ -269,7 +278,7 @@ export default function UploadPage() {
   const handleReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setReceiptScanning(true); setReceiptResult(null); setReceiptDone(false)
+    setReceiptScanning(true); setReceiptResult(null); setReceiptDone(false); setError('')
     const reader = new FileReader()
     reader.onload = async (ev) => {
       const dataUrl = ev.target?.result as string
@@ -277,8 +286,16 @@ export default function UploadPage() {
       const base64 = dataUrl.split(',')[1]
       try {
         const res = await fetch('/api/scan-receipt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ imageBase64: base64 }) })
-        setReceiptResult(await res.json())
-      } catch { setReceiptResult({ amount: null, merchant: 'Could not read', category: 'Other' }) }
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          if (res.status === 401) router.replace('/app/login')
+          throw new Error(payload?.error || 'Could not read this receipt.')
+        }
+        setReceiptResult(payload)
+      } catch (err: any) {
+        setError(err?.message || 'Could not read this receipt.')
+        setReceiptResult({ amount: null, merchant: 'Could not read', category: 'Other' })
+      }
       finally { setReceiptScanning(false) }
     }
     reader.readAsDataURL(file)
@@ -289,7 +306,11 @@ export default function UploadPage() {
     setSaving(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setError('Please sign in again.')
+        router.replace('/app/login')
+        return
+      }
       const { error: insertError } = await supabase.from('budget_entries').insert({
         user_id: user.id, category: receiptResult.category, amount: receiptResult.amount,
         description: receiptResult.merchant, entry_date: getLocalDateKey(), logged_via: 'receipt'
@@ -333,6 +354,9 @@ export default function UploadPage() {
             {!txs.length && !parsing && !saved && (
               <>
                 <div onClick={() => fileRef.current?.click()}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') fileRef.current?.click() }}
+                  role="button"
+                  tabIndex={0}
                   className="card border-2 border-dashed border-saffron/30 text-center py-10 cursor-pointer active:bg-saffron-soft">
                   <FileText className="mx-auto mb-3 h-10 w-10 text-saffron" />
                   <p className="font-medium text-ink mb-1">Upload CSV statement</p>
@@ -383,6 +407,9 @@ export default function UploadPage() {
             {!receiptPreview && (
               <>
                 <div onClick={()=>receiptRef.current?.click()}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') receiptRef.current?.click() }}
+                  role="button"
+                  tabIndex={0}
                   className="card border-2 border-dashed border-saffron/30 text-center py-10 cursor-pointer active:bg-saffron-soft">
                   <Camera className="mx-auto mb-3 h-10 w-10 text-saffron" />
                   <p className="font-medium text-ink mb-1">Scan a receipt</p>

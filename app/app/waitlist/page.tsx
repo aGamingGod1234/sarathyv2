@@ -26,6 +26,8 @@ export default function WaitlistPage() {
     referral: '',
   })
 
+  const emailIsValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim().toLowerCase())
+
   const update = (key: string, val: string) => {
     setSubmitError('')
     setForm(p => ({ ...p, [key]: val }))
@@ -33,13 +35,17 @@ export default function WaitlistPage() {
 
   const handleSubmit = async () => {
     if (savingRef.current) return
+    if (!form.name.trim() || !emailIsValid || !form.user_type) {
+      setSubmitError('Enter a valid name, email, and user type.')
+      return
+    }
     savingRef.current = true
     setSaving(true)
     setSubmitError('')
     try {
       const { error } = await supabase.from('waitlist').insert({
-        name: form.name,
-        email: form.email,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
         user_type: form.user_type,
         country_from: form.country_from,
         country_now: form.country_now,
@@ -152,6 +158,9 @@ export default function WaitlistPage() {
                 placeholder="your@email.com"
                 className="input-field"
               />
+              {form.email && !emailIsValid && (
+                <p className="mt-2 text-xs text-danger" role="alert">Enter a valid email address.</p>
+              )}
             </div>
 
             <div>
@@ -180,7 +189,7 @@ export default function WaitlistPage() {
 
             <button
               onClick={() => setStep(2)}
-              disabled={!form.name || !form.email || !form.user_type}
+              disabled={!form.name.trim() || !emailIsValid || !form.user_type}
               className="btn-primary"
             >
               Continue

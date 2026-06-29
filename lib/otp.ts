@@ -175,7 +175,11 @@ export function isValidEmail(email: string) {
 }
 
 function otpSecret() {
-  return process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || 'sarathy-local-otp-secret'
+  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('OTP secret is not configured.')
+  }
+  return secret || 'sarathy-local-otp-secret'
 }
 
 function identifierFor(email: string, purpose: OtpPurpose) {

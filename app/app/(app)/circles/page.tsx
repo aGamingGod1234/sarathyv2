@@ -55,6 +55,7 @@ export default function CirclesPage() {
     if (!name.trim()) return
     setSaving(true); setError('')
     try {
+      if (!userId) throw new Error('Please sign in again.')
       const { data: circle, error: e } = await supabase
         .from('circles')
         .insert({ name: name.trim(), created_by: userId })
@@ -62,11 +63,12 @@ export default function CirclesPage() {
         .single()
       if (e) throw e
 
-      await supabase.from('circle_members').insert({
+      const { error: memberError } = await supabase.from('circle_members').insert({
         circle_id: circle.id,
         user_id: userId,
         display_name: 'You',
       })
+      if (memberError) throw memberError
 
       setName(''); setShowCreate(false)
       load()
@@ -79,17 +81,13 @@ export default function CirclesPage() {
     if (!inviteCode.trim()) return
     setSaving(true); setError('')
     try {
-      const { data: circle, error: e } = await supabase
-        .from('circles')
-        .select('*')
-        .eq('invite_code', inviteCode.trim().toLowerCase())
-        .single()
-      if (e || !circle) throw new Error('Circle not found. Check the invite code.')
-
-      const { error: memberError } = await supabase
-        .from('circle_members')
-        .insert({ circle_id: circle.id, user_id: userId })
-      if (memberError && !memberError.message.includes('duplicate')) throw memberError
+      const res = await fetch('/api/circles/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inviteCode: inviteCode.trim().toLowerCase() }),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error || 'Could not join circle.')
 
       setInviteCode(''); setShowJoin(false)
       load()

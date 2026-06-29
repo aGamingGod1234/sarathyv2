@@ -79,6 +79,7 @@ export default function FixedCostsPage() {
   const [dueDay, setDueDay] = useState('')
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -99,26 +100,47 @@ export default function FixedCostsPage() {
 
   const handleSave = async () => {
     if (!name.trim() || !amount) return
-    setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    if (editingId) {
-      await supabase.from('fixed_spending').update({
-        name, amount: parseFloat(amount), emoji,
-        due_day: dueDay ? parseInt(dueDay) : null,
-      }).eq('id', editingId)
-    } else {
-      await supabase.from('fixed_spending').insert({
-        user_id: user.id, name, amount: parseFloat(amount), emoji,
-        due_day: dueDay ? parseInt(dueDay) : null,
-      })
+    const amountValue = Number(amount)
+    const dueDayValue = dueDay ? Number(dueDay) : null
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      setError('Enter an amount greater than 0.')
+      return
+    }
+    if (dueDayValue !== null && (!Number.isInteger(dueDayValue) || dueDayValue < 1 || dueDayValue > 31)) {
+      setError('Due day must be between 1 and 31.')
+      return
     }
 
-    setName(''); setAmount(''); setEmoji('card')
-    setDueDay(''); setEditingId(null)
-    setShowAdd(false); setSaving(false)
-    load()
+    setSaving(true)
+    setError('')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError('Please sign in again.')
+        router.replace('/app/login')
+        return
+      }
+
+      const result = editingId
+        ? await supabase.from('fixed_spending').update({
+            name: name.trim(), amount: amountValue, emoji,
+            due_day: dueDayValue,
+          }).eq('id', editingId)
+        : await supabase.from('fixed_spending').insert({
+            user_id: user.id, name: name.trim(), amount: amountValue, emoji,
+            due_day: dueDayValue,
+          })
+      if (result.error) throw result.error
+
+      setName(''); setAmount(''); setEmoji('card')
+      setDueDay(''); setEditingId(null)
+      setShowAdd(false)
+      load()
+    } catch (err: any) {
+      setError(err?.message || 'Could not save this fixed cost.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleEdit = (item: FixedSpending) => {
@@ -131,13 +153,24 @@ export default function FixedCostsPage() {
   }
 
   const handleDelete = async (id: string) => {
-    await supabase.from('fixed_spending').delete().eq('id', id)
+    setError('')
+    const { error: deleteError } = await supabase.from('fixed_spending').delete().eq('id', id)
+    if (deleteError) {
+      setError(deleteError.message || 'Could not delete this fixed cost.')
+      return false
+    }
     load()
+    return true
   }
 
   const handleToggle = async (item: FixedSpending) => {
-    await supabase.from('fixed_spending')
+    setError('')
+    const { error: toggleError } = await supabase.from('fixed_spending')
       .update({ is_active: !item.is_active }).eq('id', item.id)
+    if (toggleError) {
+      setError(toggleError.message || 'Could not update this fixed cost.')
+      return
+    }
     load()
   }
 
@@ -179,6 +212,11 @@ export default function FixedCostsPage() {
             {formatCurrency(total, currency)}
           </span>
         </p>
+        {error && !showAdd && (
+          <div className="mt-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-danger" role="alert">
+            {error}
+          </div>
+        )}
       </div>
 
       <div className="px-5">
@@ -307,6 +345,12 @@ export default function FixedCostsPage() {
               />
             </div>
 
+            {error && (
+              <div className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-danger" role="alert">
+                {error}
+              </div>
+            )}
+
             <button
               onClick={handleSave}
               className="btn-primary"
@@ -319,9 +363,8 @@ export default function FixedCostsPage() {
 
             {editingId && (
               <button
-                onClick={() => {
-                  handleDelete(editingId)
-                  setShowAdd(false)
+                onClick={async () => {
+                  if (await handleDelete(editingId)) setShowAdd(false)
                 }}
                 className="w-full mt-3 py-3 text-sm text-danger font-medium"
               >

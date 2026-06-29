@@ -91,6 +91,7 @@ export default function RemittancePage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [rateError, setRateError] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [selectedProvider, setSelectedProvider] = useState('Wise')
 
   const fromCurrency = profile?.primary_currency || 'SGD'
@@ -189,22 +190,32 @@ export default function RemittancePage() {
   const handleSave = async () => {
     if (!canCalculate || !rate || !toCurrency) return
     setSaving(true)
+    setSaveError('')
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      await supabase.from('remittance_logs').insert({
+      if (!user) {
+        setSaveError('Please sign in again.')
+        router.replace('/app/login')
+        return
+      }
+      const { error: insertError } = await supabase.from('remittance_logs').insert({
         user_id: user.id,
-        amount_sent: amountValue,
-        from_currency: fromCurrency,
-        to_currency: toCurrency,
-        rate_used: rate,
+        amount: amountValue,
         provider: selectedProvider,
+        rate,
+        fee,
+        recipient_gets: youGet,
+        source_currency: fromCurrency,
+        destination_currency: toCurrency,
       })
+      if (insertError) throw insertError
       setSaved(true)
       setAmount('')
       const { data } = await supabase.from('remittance_logs').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10)
       setHistory(data || [])
       setTimeout(() => setSaved(false), 3000)
+    } catch (err: any) {
+      setSaveError(err?.message || 'Could not log this transfer.')
     } finally { setSaving(false) }
   }
 
@@ -338,6 +349,11 @@ export default function RemittancePage() {
               Transfer logged successfully.
             </div>
           )}
+          {saveError && (
+            <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-danger mb-3" role="alert">
+              {saveError}
+            </div>
+          )}
 
           <button
             onClick={handleSave}
@@ -358,16 +374,18 @@ export default function RemittancePage() {
             </p>
             <div className="flex flex-col gap-2">
               {history.map(h => {
-                const sentCurrency = h.from_currency || 'SGD'
-                const receivedCurrency = h.to_currency || 'INR'
+                const sentAmount = Number(h.amount || 0)
+                const receivedAmount = Number(h.recipient_gets || sentAmount * Number(h.rate || 0))
+                const sentCurrency = h.source_currency || 'SGD'
+                const receivedCurrency = h.destination_currency || 'INR'
                 return (
                   <div key={h.id} className="flex items-center justify-between py-2 border-b border-cream last:border-0">
                     <div>
                       <p className="text-sm font-medium text-ink">
-                        {formatCurrency(h.amount_sent, sentCurrency)} to {formatDestinationAmount(h.amount_sent * h.rate_used, receivedCurrency)}
+                        {formatCurrency(sentAmount, sentCurrency)} to {formatDestinationAmount(receivedAmount, receivedCurrency)}
                       </p>
                       <p className="text-xs text-ink-3">
-                        {h.provider} / Rate: {h.rate_used?.toFixed(2)} / {new Date(h.created_at).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}
+                        {h.provider} / Rate: {Number(h.rate || 0).toFixed(2)} / {new Date(h.created_at).toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}
                       </p>
                     </div>
                   </div>

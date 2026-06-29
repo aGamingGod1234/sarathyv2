@@ -38,8 +38,10 @@ export default function CirclePage() {
   const [showShare, setShowShare] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [error, setError] = useState('')
 
   const load = async () => {
+    setError('')
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.replace('/app/login'); return }
     setUserId(user.id)
@@ -51,7 +53,20 @@ export default function CirclePage() {
       supabase.from('profiles').select('name, daily_login_streak, total_xp').eq('id', user.id).single(),
     ])
 
-    if (circleRes.data) setCircle(circleRes.data)
+    if (circleRes.error || !circleRes.data) {
+      setError('Circle not found, or you do not have access to it.')
+      setCircle(null)
+      setMoments([])
+      setMembers([])
+      setLoading(false)
+      return
+    }
+
+    if (momentsRes.error || membersRes.error) {
+      setError('Could not load this circle. Please refresh and try again.')
+    }
+
+    setCircle(circleRes.data)
     setMoments((momentsRes.data || []) as Moment[])
     setMembers(membersRes.data || [])
     if (profileRes.data) setProfile(profileRes.data)
@@ -63,6 +78,7 @@ export default function CirclePage() {
 
   const handleShare = async (type: string) => {
     setSharing(true)
+    setError('')
     try {
       let content: any = {}
       if (type === 'streak') {
@@ -75,15 +91,18 @@ export default function CirclePage() {
         content = { message: 'Had a good money week 🏆' }
       }
 
-      await supabase.from('circle_moments').insert({
+      const { error: insertError } = await supabase.from('circle_moments').insert({
         circle_id: circleId,
         sender_id: userId,
         type,
         content,
       })
+      if (insertError) throw insertError
 
       setShowShare(false)
       load()
+    } catch (err: any) {
+      setError(err?.message || 'Could not share this moment.')
     } finally { setSharing(false) }
   }
 
@@ -92,9 +111,13 @@ export default function CirclePage() {
       ? currentReactions.filter(r => r !== emoji)
       : [...currentReactions, emoji]
 
-    await supabase.from('circle_moments')
+    const { error: updateError } = await supabase.from('circle_moments')
       .update({ reactions: updated })
       .eq('id', momentId)
+    if (updateError) {
+      setError(updateError.message || 'Could not update that reaction.')
+      return
+    }
 
     setMoments(prev => prev.map(m =>
       m.id === momentId ? { ...m, reactions: updated } : m
@@ -160,6 +183,20 @@ export default function CirclePage() {
     </div>
   )
 
+  if (error && !circle) return (
+    <div className="min-h-dvh bg-cream px-5 pb-24 pt-12 md:pb-12 md:pl-32 md:pr-8 lg:pl-36">
+      <main className="mx-auto w-full max-w-5xl">
+        <button onClick={() => router.push('/app/circles')} className="mb-5 text-sm font-medium text-saffron">
+          Back to circles
+        </button>
+        <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-danger" role="alert">
+          {error}
+        </div>
+      </main>
+      <TabBar active="circles" />
+    </div>
+  )
+
   return (
     <div className="min-h-dvh bg-cream flex flex-col md:pl-32 md:pr-8 lg:pl-36">
       {/* Header */}
@@ -181,6 +218,11 @@ export default function CirclePage() {
 
       {/* Moments feed */}
       <div className="mx-auto w-full max-w-5xl flex-1 overflow-y-auto px-4 py-4 pb-40 md:px-8">
+        {error && (
+          <div className="mb-3 rounded-2xl bg-red-50 px-4 py-3 text-sm text-danger" role="alert">
+            {error}
+          </div>
+        )}
         {moments.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-3xl mb-3">🌸</p>

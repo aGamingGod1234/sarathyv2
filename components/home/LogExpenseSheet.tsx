@@ -85,7 +85,10 @@ export default function LogExpenseSheet({ profile, onClose, onLogged }: Props) {
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setError('Please sign in again.')
+        return
+      }
 
       let finalAmount = amountValue
       const originalAmount = finalAmount
@@ -107,11 +110,12 @@ export default function LogExpenseSheet({ profile, onClose, onLogged }: Props) {
       }
 
       if (mood) {
-        await supabase.from('mood_logs').upsert({
+        const { error: moodError } = await supabase.from('mood_logs').upsert({
           user_id: user.id,
           mood,
           entry_date: today,
         }, { onConflict: 'user_id,entry_date' })
+        if (moodError) throw moodError
       }
 
       const { error: insertError } = await supabase.from('budget_entries').insert({
@@ -127,7 +131,8 @@ export default function LogExpenseSheet({ profile, onClose, onLogged }: Props) {
       if (insertError) throw insertError
 
       const { data: p } = await supabase.from('profiles').select('total_xp').eq('id', user.id).single()
-      await supabase.from('profiles').update({ total_xp: (p?.total_xp || 0) + 10 }).eq('id', user.id)
+      const { error: xpError } = await supabase.from('profiles').update({ total_xp: (p?.total_xp || 0) + 10 }).eq('id', user.id)
+      if (xpError) console.warn('Could not update XP:', xpError.message)
 
       onLogged(10, rect.left + rect.width / 2, rect.top)
       onClose()

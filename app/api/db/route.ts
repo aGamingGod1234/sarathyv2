@@ -48,6 +48,8 @@ const userOwnedTables = new Set<DbRequest['table']>([
 ])
 
 const MAX_PERSONAL_MONEY_AMOUNT = 10_000_000
+const BLOCKED_PROFILE_WRITE_FIELDS = ['plan_tier', 'created_at', 'updated_at'] as const
+const CIRCLE_MEMBER_UPDATE_FIELDS = new Set(['display_name'])
 
 class DbRequestError extends Error {
   constructor(message: string, readonly status = 400) {
@@ -98,7 +100,16 @@ function buildWhere(filters: Filter[] = []) {
   return where
 }
 
-function normalizeValues(table: DbRequest['table'], values: any, userId: string | null) {
+function isValidEmail(value: unknown) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim().toLowerCase())
+}
+
+function normalizeValues(
+  table: DbRequest['table'],
+  values: any,
+  userId: string | null,
+  operation: DbRequest['operation'],
+) {
   const normalizeMoney = (raw: unknown, label: string, options: { allowZero?: boolean; nullable?: boolean } = {}) => {
     if ((raw === null || raw === undefined || raw === '') && options.nullable) return null
     const value = Number(raw)
@@ -114,11 +125,35 @@ function normalizeValues(table: DbRequest['table'], values: any, userId: string 
 
   const validateOne = (value: Record<string, any>) => {
     if (table === 'profiles') {
+      for (const field of BLOCKED_PROFILE_WRITE_FIELDS) {
+        if (field in value) {
+          throw new DbRequestError(
+            field === 'plan_tier'
+              ? 'Plan changes must go through billing.'
+              : 'This profile field cannot be changed here.',
+            403,
+          )
+        }
+      }
       if ('planning_amount' in value) {
         value.planning_amount = normalizeMoney(value.planning_amount, 'Monthly budget or income', { allowZero: true, nullable: true })
       }
       if ('total_money' in value) {
         value.total_money = normalizeMoney(value.total_money, 'Total money', { allowZero: true, nullable: true })
+      }
+    }
+
+    if (table === 'waitlist') {
+      value.email = String(value.email || '').trim().toLowerCase()
+      value.name = String(value.name || '').trim()
+      if (!value.name) throw new DbRequestError('Enter your name.')
+      if (!isValidEmail(value.email)) throw new DbRequestError('Enter a valid email address.')
+    }
+
+    if (table === 'circle_members' && operation === 'update') {
+      const fields = Object.keys(value)
+      if (fields.some(field => !CIRCLE_MEMBER_UPDATE_FIELDS.has(field))) {
+        throw new DbRequestError('Not allowed.', 403)
       }
     }
 
@@ -147,9 +182,9 @@ function normalizeValues(table: DbRequest['table'], values: any, userId: string 
     const next = { ...value }
     if (userId && userOwnedTables.has(table)) next.user_id = userId
     if (userId && table === 'profiles') next.id = userId
-    if (userId && table === 'circles') next.created_by = userId
-    if (userId && table === 'circle_members') next.user_id = userId
-    if (userId && table === 'circle_moments') next.sender_id = userId
+    if (userId && table === 'circles' && operation === 'insert') next.created_by = userId
+    if (userId && table === 'circle_members' && operation === 'insert') next.user_id = userId
+    if (userId && table === 'circle_moments' && operation === 'insert') next.sender_id = userId
     return validateOne(next)
   }
 
@@ -174,6 +209,19 @@ function circleIdsFromValues(values: unknown) {
   ))
 }
 
+function rowsFromValues(values: unknown) {
+  return Array.isArray(values) ? values : [values]
+}
+
+function rowsMissingCircleId(values: unknown) {
+  return rowsFromValues(values).some(value => (
+    !value
+    || typeof value !== 'object'
+    || typeof (value as Record<string, unknown>).circle_id !== 'string'
+    || !(value as Record<string, string>).circle_id
+  ))
+}
+
 async function assertAllCircleMemberships(circleIds: string[], userId: string) {
   if (circleIds.length === 0) return false
   const memberships = await prisma.circleMember.findMany({
@@ -182,6 +230,46 @@ async function assertAllCircleMemberships(circleIds: string[], userId: string) {
   })
   const joined = new Set(memberships.map(member => member.circle_id))
   return circleIds.every(circleId => joined.has(circleId))
+}
+
+async function memberCircleWhere(userId: string) {
+  const memberships = await prisma.circleMember.findMany({
+    where: { user_id: userId },
+    select: { circle_id: true },
+  })
+  return { id: { in: memberships.map(member => member.circle_id) } }
+}
+
+async function creatorOrMemberCircleIds(circleIds: string[], userId: string) {
+  if (circleIds.length === 0) return []
+  const [owned, memberships] = await Promise.all([
+    prisma.circle.findMany({
+      where: { id: { in: circleIds }, created_by: userId },
+      select: { id: true },
+    }),
+    prisma.circleMember.findMany({
+      where: { circle_id: { in: circleIds }, user_id: userId },
+      select: { circle_id: true },
+    }),
+  ])
+  return Array.from(new Set([
+    ...owned.map(circle => circle.id),
+    ...memberships.map(member => member.circle_id),
+  ]))
+}
+
+async function ownedCircleIds(circleIds: string[], userId: string) {
+  if (circleIds.length === 0) return []
+  const circles = await prisma.circle.findMany({
+    where: { id: { in: circleIds }, created_by: userId },
+    select: { id: true },
+  })
+  return circles.map(circle => circle.id)
+}
+
+function requestedFields(values: unknown) {
+  if (!values || typeof values !== 'object' || Array.isArray(values)) return []
+  return Object.keys(values as Record<string, unknown>)
 }
 
 async function applyAccessControl(
@@ -204,7 +292,10 @@ async function applyAccessControl(
 
   if (table === 'circles') {
     if (operation === 'insert') return where
-    if (where.invite_code) return where
+    if (where.invite_code) {
+      if (operation !== 'select') throw new DbRequestError('Not allowed.', 403)
+      return where
+    }
 
     const idFilter = where.id
     const circleIds = Array.isArray(idFilter?.in)
@@ -213,34 +304,67 @@ async function applyAccessControl(
         ? [idFilter]
         : []
 
-    if (circleIds.length > 0) {
-      const memberships = await prisma.circleMember.findMany({
-        where: { user_id: userId, circle_id: { in: circleIds } },
-        select: { circle_id: true },
-      })
-      return { ...where, id: { in: memberships.map(member => member.circle_id) } }
+    if (operation === 'select') {
+      if (circleIds.length > 0) {
+        const memberships = await prisma.circleMember.findMany({
+          where: { user_id: userId, circle_id: { in: circleIds } },
+          select: { circle_id: true },
+        })
+        return { ...where, id: { in: memberships.map(member => member.circle_id) } }
+      }
+      return { ...where, ...await memberCircleWhere(userId) }
     }
+
+    if (operation === 'update' || operation === 'delete') {
+      if (circleIds.length === 0) throw new DbRequestError('Circle id required.', 400)
+      return { ...where, created_by: userId, id: { in: await ownedCircleIds(circleIds, userId) } }
+    }
+
+    throw new DbRequestError('Not allowed.', 403)
   }
 
   if (table === 'circle_members') {
     const circleId = typeof where.circle_id === 'string' ? where.circle_id : undefined
-    if (operation === 'insert') return where
-    if (where.user_id === userId) return where
-    if (circleId && await assertCircleMembership(circleId, userId)) return where
+    if (operation === 'insert') {
+      if (rowsMissingCircleId(values)) throw new DbRequestError('Circle id required.', 400)
+      const requestedIds = circleIdsFromValues(values)
+      const allowedIds = new Set(await creatorOrMemberCircleIds(requestedIds, userId))
+      if (requestedIds.some(id => !allowedIds.has(id))) throw new DbRequestError('Not allowed.', 403)
+      return where
+    }
+
+    if (operation === 'select' && where.user_id === userId) return where
+    if (operation === 'select' && circleId && await assertCircleMembership(circleId, userId)) return where
+    if (operation === 'update') {
+      if (where.user_id === userId) return { ...where, user_id: userId }
+      throw new DbRequestError('Not allowed.', 403)
+    }
+    if (operation === 'delete' && where.user_id === userId) return where
+    if (operation === 'delete' && circleId) {
+      const owner = await prisma.circle.findFirst({
+        where: { id: circleId, created_by: userId },
+        select: { id: true },
+      })
+      if (owner) return where
+    }
     throw new DbRequestError('Not allowed.', 403)
   }
 
   if (table === 'circle_moments') {
     const circleId = typeof where.circle_id === 'string' ? where.circle_id : undefined
     if (operation === 'insert' && await assertAllCircleMemberships(circleIdsFromValues(values), userId)) return where
-    if (circleId && await assertCircleMembership(circleId, userId)) return where
     if (operation === 'update') {
+      const fields = requestedFields(values)
+      if (fields.some(field => field !== 'reactions')) throw new DbRequestError('Not allowed.', 403)
       const momentId = typeof where.id === 'string' ? where.id : undefined
+      if (!momentId) throw new DbRequestError('Moment id required.', 400)
       const moment = momentId
         ? await prisma.circleMoment.findUnique({ where: { id: momentId }, select: { circle_id: true } })
         : null
       if (moment && await assertCircleMembership(moment.circle_id, userId)) return where
     }
+    if (operation === 'delete') return { ...where, sender_id: userId }
+    if (operation === 'select' && circleId && await assertCircleMembership(circleId, userId)) return where
     throw new DbRequestError('Not allowed.', 403)
   }
 
@@ -285,7 +409,7 @@ export async function POST(req: Request) {
     }
 
     if (body.operation === 'insert') {
-      const values = normalizeValues(body.table, body.values, userId)
+      const values = normalizeValues(body.table, body.values, userId, body.operation)
       const data = Array.isArray(values)
         ? await Promise.all(values.map(value => delegate.create({ data: value })))
         : await delegate.create({ data: values })
@@ -293,7 +417,7 @@ export async function POST(req: Request) {
     }
 
     if (body.operation === 'update') {
-      const values = normalizeValues(body.table, body.values, userId)
+      const values = normalizeValues(body.table, body.values, userId, body.operation)
       const data = await delegate.updateMany({ where, data: values })
       return json(data)
     }
@@ -304,7 +428,7 @@ export async function POST(req: Request) {
     }
 
     if (body.operation === 'upsert') {
-      const values = normalizeValues(body.table, body.values, userId) as Record<string, any>
+      const values = normalizeValues(body.table, body.values, userId, body.operation) as Record<string, any>
       if (body.table === 'mood_logs') {
         const data = await prisma.moodLog.upsert({
           where: {

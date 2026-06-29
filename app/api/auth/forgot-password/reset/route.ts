@@ -33,6 +33,7 @@ export async function POST(req: Request) {
       data: {
         password_hash,
         emailVerified: new Date(),
+        password_changed_at: new Date(),
       },
     })
 
