@@ -16,6 +16,11 @@ type ApiError = {
   status?: number
   code?: string
   cooldownSeconds?: number
+  suggestion?: string
+  action?: string
+  provider?: string
+  providerStatus?: number
+  providerCode?: string
 }
 
 async function readJsonResponse(res: Response) {
@@ -48,6 +53,11 @@ function getApiError(payload: any, fallback: string, status?: number): ApiError 
     status,
     code: payload?.code,
     cooldownSeconds: payload?.cooldownSeconds,
+    suggestion: payload?.suggestion,
+    action: payload?.action,
+    provider: payload?.provider,
+    providerStatus: payload?.providerStatus,
+    providerCode: payload?.providerCode,
   }
 }
 

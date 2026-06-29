@@ -1,17 +1,19 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
 import {
   AbsoluteFill,
   Easing,
   Img,
   Sequence,
+  continueRender,
+  delayRender,
   interpolate,
-  interpolateColors,
+  spring,
   staticFile,
   useCurrentFrame,
   useVideoConfig,
 } from 'remotion'
 import {
-  ArrowRight,
+  AlertCircle,
   BarChart3,
   Bus,
   CalendarClock,
@@ -28,14 +30,17 @@ import {
   PiggyBank,
   Plane,
   ReceiptText,
-  ShieldCheck,
+  SendHorizontal,
   ShoppingBag,
+  Sparkles,
   Utensils,
   WalletCards,
   Wifi,
   Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { loadFont as loadMontserrat } from '@remotion/google-fonts/Montserrat'
+import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react'
 
 export type SarathyPromoProps = {
   appName: string
@@ -45,7 +50,7 @@ export type SarathyPromoProps = {
 
 const COLORS = {
   bg: '#F7F4EE',
-  ink: '#17110C',
+  ink: '#35373B',
   muted: '#7A6E64',
   line: '#E6DED4',
   lineStrong: '#D1C5B8',
@@ -54,28 +59,50 @@ const COLORS = {
   dark: '#0E0D10',
   dark2: '#17161A',
   darkLine: '#2B2A30',
-  orange: '#F97316',
+  orange: '#F65B28',
+  orangeText: '#FFDA24',
   orangeSoft: '#FFF3E8',
   green: '#10B981',
   greenSoft: '#E9F8F0',
   plum: '#1E0A2E',
 }
 
+const { fontFamily: MONTSERRAT_FONT } = loadMontserrat('normal', {
+  weights: ['700', '800', '900'],
+  subsets: ['latin'],
+})
+
 const FONT =
-  '"Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  '"SF Pro Display", "SF Pro Text", "San Francisco", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+const FEATURE_FONT = `${MONTSERRAT_FONT}, ${FONT}`
 const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1)
 const EASE_IN = Easing.in(Easing.cubic)
+const HORIZONTAL_ROLL_EASE = Easing.bezier(0.22, 0.82, 0.24, 1)
+const FOCUS_SCENE_SCALE = 1.5
+const TRACKER_SCENE_SCALE = FOCUS_SCENE_SCALE * 0.7
+const TIMELINE_FPS = 30
+const SCATTERED_END_FRAME = 120
+const TRACKER_START_FRAME = SCATTERED_END_FRAME
+const TRACKER_ZOOM_START_FRAME = 260
+const TRACKER_ZOOM_DURATION_FRAMES = 18
+const TRACKER_ZOOM_START_LOCAL_FRAME = TRACKER_ZOOM_START_FRAME - TRACKER_START_FRAME
+const TRACKER_DURATION_FRAMES = TRACKER_ZOOM_START_LOCAL_FRAME + TRACKER_ZOOM_DURATION_FRAMES + 1
+const SEQUENCE_2_END_FRAME = TRACKER_START_FRAME + TRACKER_DURATION_FRAMES
+const SEQUENCE_4_END_FRAME = 520
+const SEQUENCE_5_END_FRAME = 800
+const TOTAL_DURATION_IN_FRAMES = 1040
 const clamp = {
   extrapolateLeft: 'clamp' as const,
   extrapolateRight: 'clamp' as const,
 }
 
 const sceneDurations = {
-  scattered: 135,
-  tracker: 6 * 30,
-  intro: 4 * 30,
-  method: 7 * 30,
-  close: 5 * 30,
+  scattered: SCATTERED_END_FRAME,
+  tracker: SEQUENCE_2_END_FRAME - TRACKER_START_FRAME,
+  intro: 117,
+  method: SEQUENCE_4_END_FRAME - SEQUENCE_2_END_FRAME - 117,
+  close: SEQUENCE_5_END_FRAME - SEQUENCE_4_END_FRAME,
+  chatbot: TOTAL_DURATION_IN_FRAMES - SEQUENCE_5_END_FRAME,
 }
 
 function ease(frame: number, start: number, duration: number, easing = EASE_OUT) {
@@ -113,12 +140,93 @@ const base: CSSProperties = {
   letterSpacing: 0,
 }
 
+function VideoShaderBackground() {
+  const shaderHandle = useMemo(() => delayRender('ShaderGradient background warmup'), [])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => continueRender(shaderHandle), 800)
+
+    return () => {
+      clearTimeout(timeout)
+    }
+  }, [shaderHandle])
+
+  return (
+    <AbsoluteFill style={{ background: '#000000', overflow: 'hidden' }}>
+      <ShaderGradientCanvas
+        fov={45}
+        lazyLoad={false}
+        pixelDensity={1}
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+        }}
+      >
+        <ShaderGradient
+          animate="on"
+          brightness={1}
+          cAzimuthAngle={180}
+          cDistance={2.4}
+          cPolarAngle={95}
+          cameraZoom={1}
+          color1="#ff6a1a"
+          color2="#c73c00"
+          color3="#FD4912"
+          control="props"
+          enableCameraUpdate={false}
+          enableTransition={false}
+          envPreset="city"
+          grain="off"
+          lightType="3d"
+          positionX={0}
+          positionY={-2.1}
+          positionZ={0}
+          range="disabled"
+          rangeEnd={40}
+          rangeStart={0}
+          reflection={0.1}
+          rotationX={0}
+          rotationY={0}
+          rotationZ={225}
+          shader="defaults"
+          toggleAxis={false}
+          type="waterPlane"
+          uAmplitude={0}
+          uDensity={1.8}
+          uFrequency={5.5}
+          uSpeed={0.3}
+          uStrength={3}
+          uTime={0.2}
+          wireframe={false}
+        />
+      </ShaderGradientCanvas>
+    </AbsoluteFill>
+  )
+}
+
+function orangeText(_: number): CSSProperties {
+  return {
+    color: COLORS.orangeText,
+    WebkitTextFillColor: COLORS.orangeText,
+    textShadow: '0 3px 14px rgba(60,16,0,0.36)',
+  }
+}
+
+function darkText(_: number): CSSProperties {
+  return {
+    color: COLORS.ink,
+    WebkitTextFillColor: COLORS.ink,
+  }
+}
+
 function Canvas({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
   return (
     <AbsoluteFill
       style={{
         ...base,
-        background: dark ? COLORS.dark : COLORS.bg,
         color: dark ? COLORS.surface : COLORS.ink,
       }}
     >
@@ -131,6 +239,19 @@ function Canvas({ children, dark = false }: { children: ReactNode; dark?: boolea
           opacity: 0.32,
         }}
       />
+      {children}
+    </AbsoluteFill>
+  )
+}
+
+function FocusSceneScale({ children, scale = FOCUS_SCENE_SCALE }: { children: ReactNode; scale?: number }) {
+  return (
+    <AbsoluteFill
+      style={{
+        transform: `scale(${scale})`,
+        transformOrigin: '50% 50%',
+      }}
+    >
       {children}
     </AbsoluteFill>
   )
@@ -160,7 +281,7 @@ function Title({
       style={{
         margin: 0,
         width,
-        color: light ? COLORS.surface : COLORS.ink,
+        ...(light ? { color: COLORS.surface } : darkText(frame)),
         fontSize: size,
         lineHeight: 1,
         fontWeight: 780,
@@ -254,7 +375,9 @@ function ExpenseToken({
       >
         <Icon size={45} strokeWidth={2.4} />
       </div>
-      <div style={{ fontSize: 38, fontWeight: 760, whiteSpace: 'nowrap' }}>{label}</div>
+      <div style={{ display: 'inline-block', fontSize: 38, fontWeight: 760, whiteSpace: 'nowrap', ...darkText(frame) }}>
+        {label}
+      </div>
     </div>
   )
 }
@@ -263,8 +386,9 @@ function ScatteredTitle({ frame }: { frame: number }) {
   const money = fastFadeUp(frame, 4, 14)
   const is = fastFadeUp(frame, 13, 14)
   const scatteredReveal = ease(frame, 22, 12)
-  const scatteredColorProgress = interpolate(frame, [28, 124], [0, 1], clamp)
-  const scatteredColor = interpolateColors(scatteredColorProgress, [0, 1], [COLORS.ink, '#EF4444'])
+  const scatteredRedProgress = ease(frame, 30, 54)
+  const scatteredDarkOpacity = interpolate(scatteredRedProgress, [0, 0.72, 1], [1, 0.44, 0], clamp)
+  const scatteredRedOpacity = interpolate(scatteredRedProgress, [0, 0.16, 1], [0, 0.72, 1], clamp)
 
   return (
     <div
@@ -287,19 +411,41 @@ function ScatteredTitle({ frame }: { frame: number }) {
           fontWeight: 800,
         }}
       >
-        <span style={{ display: 'inline-block', ...money }}>Money</span>
+        <span style={{ display: 'inline-block', ...darkText(frame), ...money }}>Money</span>
         <span style={{ display: 'inline-block', width: 22 }} />
-        <span style={{ display: 'inline-block', ...is }}>is</span>
+        <span style={{ display: 'inline-block', ...darkText(frame), ...is }}>is</span>
         <span style={{ display: 'inline-block', width: 22 }} />
         <span
           style={{
-            display: 'inline-block',
-            color: scatteredColor,
+            display: 'inline-grid',
             opacity: scatteredReveal,
             transform: `translateY(${interpolate(scatteredReveal, [0, 1], [14, 0])}px)`,
           }}
         >
-          scattered.
+          <span
+            style={{
+              gridArea: '1 / 1',
+              color: COLORS.ink,
+              WebkitTextFillColor: COLORS.ink,
+              opacity: scatteredDarkOpacity,
+              textShadow: '0 3px 10px rgba(35,20,10,0.26)',
+            }}
+          >
+            scattered.
+          </span>
+          <span
+            style={{
+              gridArea: '1 / 1',
+              color: '#FF005C',
+              WebkitTextFillColor: '#FF005C',
+              WebkitTextStroke: '1px rgba(55,0,18,0.22)',
+              opacity: scatteredRedOpacity,
+              textShadow:
+                '0 0 10px rgba(255,255,255,0.18), 0 0 26px rgba(255,0,92,0.66), 0 4px 14px rgba(55,0,18,0.34)',
+            }}
+          >
+            scattered.
+          </span>
         </span>
       </h1>
     </div>
@@ -356,19 +502,21 @@ const lineChartPath = 'M0 178 L70 134 L142 150 L214 88 L286 116 L358 54 L430 82 
 const barHeights = [0.46, 0.78, 0.58, 0.9, 0.38, 0.66]
 
 function TrackerVisuals({ frame }: { frame: number }) {
-  const enter = ease(frame, 82, 14)
-  const leave = ease(frame, 122, 12, EASE_IN)
+  const visualStart = 72
+  const visualExit = 100
+  const enter = ease(frame, visualStart, 14)
+  const leave = ease(frame, visualExit, 12, EASE_IN)
   const p = Math.max(0, Math.min(1, enter - leave))
   const drift = Math.sin(frame * 0.055) * 8
-  const lineDraw = ease(frame, 88, 26)
-  const donutDraw = ease(frame, 94, 22)
+  const lineDraw = ease(frame, visualStart + 6, 26)
+  const donutDraw = ease(frame, visualStart + 12, 22)
   const pathLength = 650
   const circumference = 2 * Math.PI * 86
 
   return (
     <AbsoluteFill style={{ opacity: p, pointerEvents: 'none' }}>
       <svg width={1920} height={1080} viewBox="0 0 1920 1080" style={{ position: 'absolute', inset: 0 }}>
-        <g transform={`translate(260 ${334 + drift}) rotate(-2)`}>
+        <g transform={`translate(140 ${190 + drift}) rotate(-2) scale(0.82)`}>
           <rect x={-42} y={-48} width={620} height={310} rx={28} fill="none" stroke={COLORS.lineStrong} strokeWidth={3} />
           {[0, 1, 2, 3].map((row) => (
             <line
@@ -422,12 +570,12 @@ function TrackerVisuals({ frame }: { frame: number }) {
             [430, 82],
             [502, 22],
           ].map(([x, y], index) => {
-            const point = ease(frame, 96 + index * 2, 8)
+            const point = ease(frame, visualStart + 14 + index * 2, 8)
             return <circle key={`${x}-${y}`} cx={x} cy={y} r={interpolate(point, [0, 1], [0, 9])} fill={COLORS.orange} />
           })}
         </g>
 
-        <g transform={`translate(730 ${570 - drift * 0.5})`}>
+        <g transform={`translate(700 ${710 - drift * 0.5}) scale(0.85)`}>
           <rect x={-48} y={-56} width={520} height={320} rx={28} fill="none" stroke={COLORS.lineStrong} strokeWidth={3} />
           {[0, 1, 2].map((row) => (
             <line
@@ -441,7 +589,7 @@ function TrackerVisuals({ frame }: { frame: number }) {
             />
           ))}
           {barHeights.map((value, index) => {
-            const bar = ease(frame, 92 + index * 3, 16)
+            const bar = ease(frame, visualStart + 10 + index * 3, 16)
             const height = interpolate(bar, [0, 1], [6, value * 216])
             return (
               <rect
@@ -459,7 +607,7 @@ function TrackerVisuals({ frame }: { frame: number }) {
           <line x1={-6} y1={220} x2={420} y2={220} stroke={COLORS.plum} strokeWidth={4} strokeLinecap="round" />
         </g>
 
-        <g transform={`translate(1278 ${314 + drift * 0.6})`}>
+        <g transform={`translate(1360 ${178 + drift * 0.6}) scale(0.82)`}>
           <rect x={-74} y={-64} width={430} height={330} rx={28} fill="none" stroke={COLORS.lineStrong} strokeWidth={3} />
           <circle cx={88} cy={88} r={86} fill="none" stroke={COLORS.line} strokeWidth={28} />
           <circle
@@ -501,78 +649,95 @@ function TrackerVisuals({ frame }: { frame: number }) {
   )
 }
 
-function TrackerScene({ duration }: { duration: number }) {
+function TrackerScene(_: { duration: number }) {
   const frame = useCurrentFrame()
+  const zoomProgress = ease(frame, TRACKER_ZOOM_START_LOCAL_FRAME, TRACKER_ZOOM_DURATION_FRAMES, EASE_IN)
+  const zoomScale = interpolate(zoomProgress, [0, 1], [1, 6.5])
   const typewriterText = 'Traditional financial trackers use simple and repeated algorithms'
-  const visibleChars = Math.floor(interpolate(frame, [8, 76], [0, typewriterText.length], clamp))
+  const visibleChars = Math.max(1, Math.floor(interpolate(frame, [0, 68], [1, typewriterText.length], clamp)))
   const firstLineExit = ease(frame, 84, 16, EASE_IN)
   const firstLineOpacity = 1 - firstLineExit
   const firstLineY = interpolate(firstLineExit, [0, 1], [0, -18])
   const secondWords = ['Nothing', 'is', 'specific', 'and', 'personalized']
 
   return (
-    <AbsoluteFill style={{ opacity: opacity(frame, duration) }}>
+    <AbsoluteFill
+      style={{
+        overflow: 'hidden',
+      }}
+    >
       <Canvas>
         <Header frame={frame} />
-        <TrackerVisuals frame={frame} />
-        <div
+        <AbsoluteFill
           style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            textAlign: 'center',
-            padding: '0 180px',
+            transform: `scale(${zoomScale})`,
+            transformOrigin: '50% 50%',
+            willChange: 'transform',
           }}
         >
-          <div
-            style={{
-              position: 'absolute',
-              width: 1180,
-              color: COLORS.ink,
-              fontSize: 62,
-              lineHeight: 1.12,
-              fontWeight: 780,
-              opacity: firstLineOpacity,
-              transform: `translateY(${firstLineY}px)`,
-            }}
-          >
-            {typewriterText.slice(0, visibleChars)}
-          </div>
+          <FocusSceneScale scale={TRACKER_SCENE_SCALE}>
+            <TrackerVisuals frame={frame} />
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                padding: '0 180px',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  width: 1180,
+                  fontSize: 62,
+                  lineHeight: 1.12,
+                  fontWeight: 780,
+                  opacity: firstLineOpacity,
+                  transform: `translateY(${firstLineY}px)`,
+                  ...darkText(frame),
+                }}
+              >
+                {typewriterText.slice(0, visibleChars)}
+              </div>
 
-          <div
-            style={{
-              position: 'absolute',
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0 20px',
-              width: 1120,
-              color: COLORS.ink,
-              fontSize: 78,
-              lineHeight: 1.05,
-              fontWeight: 800,
-            }}
-          >
-            {secondWords.map((word, index) => {
-              const wordProgress = ease(frame, 126 + index * 5, 14)
-              return (
-                <span
-                  key={word}
-                  style={{
-                    display: 'inline-block',
-                    opacity: wordProgress,
-                    transform: `translateX(${interpolate(wordProgress, [0, 1], [78, 0])}px)`,
-                  }}
-                >
-                  {word}
-                </span>
-              )
-            })}
-          </div>
-        </div>
+              <div
+                style={{
+                  position: 'absolute',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0 20px',
+                  width: 1120,
+                  color: COLORS.ink,
+                  fontSize: 78,
+                  lineHeight: 1.05,
+                  fontWeight: 800,
+                }}
+              >
+                {secondWords.map((word, index) => {
+                  const wordProgress = ease(frame, 112 + index * 4, 10)
+                  return (
+                    <span
+                      key={word}
+                      style={{
+                        display: 'inline-block',
+                        opacity: wordProgress,
+                        transform: `translateX(${interpolate(wordProgress, [0, 1], [78, 0])}px)`,
+                        ...darkText(frame),
+                      }}
+                    >
+                      {word}
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          </FocusSceneScale>
+        </AbsoluteFill>
       </Canvas>
     </AbsoluteFill>
   )
@@ -627,11 +792,20 @@ function SarathyAppIcon({ size, opacityValue = 1 }: { size: number; opacityValue
 
 function IntroScene({ duration, appName }: { duration: number; appName: string }) {
   const frame = useCurrentFrame()
-  const meet = ease(frame, 4, 16)
+  const { fps } = useVideoConfig()
+  const meet = ease(frame, -4, 16)
   const textSettle = ease(frame, 20, 22)
   const visibleLetters = Math.floor(interpolate(frame, [24, 47], [0, appName.length], clamp))
-  const logoIn = ease(frame, 52, 16)
-  const wipe = ease(frame, 74, 28, EASE_IN)
+  const logoPop = spring({
+    frame: Math.max(0, frame - 52),
+    fps,
+    config: {
+      damping: 9,
+      stiffness: 180,
+      mass: 0.55,
+    },
+  })
+  const wipe = ease(frame, 88, 28, EASE_IN)
   const groupWidth = 1040
   const groupHeight = 190
   const textTop = 44
@@ -641,82 +815,87 @@ function IntroScene({ duration, appName }: { duration: number; appName: string }
   const logoStartLeft = 852
   const logoEndLeft = 40
   const logoLeft = interpolate(wipe, [0, 1], [logoStartLeft, logoEndLeft])
-  const logoScale = interpolate(logoIn, [0, 1], [0.82, 1])
+  const logoScale = 0.78 + logoPop * 0.22
+  const logoY = interpolate(logoPop, [0, 1], [18, 0])
+  const logoOpacity = interpolate(logoPop, [0, 0.16], [0, 1], clamp)
   const textLeft = 150 + interpolate(textSettle, [0, 1], [235, 0])
   const textClipWidth = Math.max(0, Math.min(820, logoLeft + logoSize * 0.06 - textLeft))
 
   return (
-    <AbsoluteFill style={{ opacity: opacity(frame, duration) }}>
+    <AbsoluteFill>
       <Canvas>
         <Header frame={frame} />
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            width: groupWidth,
-            height: groupHeight,
-            transform: 'translate(-50%, -50%)',
-          }}
-        >
+        <FocusSceneScale>
           <div
             style={{
               position: 'absolute',
-              left: textLeft,
-              top: textTop,
-              zIndex: 1,
-              width: textClipWidth,
-              height: textSize * 1.14,
-              overflow: 'hidden',
+              left: '50%',
+              top: '50%',
+              width: groupWidth,
+              height: groupHeight,
+              transform: 'translate(-50%, -50%)',
             }}
           >
             <div
               style={{
                 position: 'absolute',
-                left: 0,
-                top: 0,
-                width: 820,
+                left: textLeft,
+                top: textTop,
+                zIndex: 1,
+                width: textClipWidth,
                 height: textSize * 1.14,
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: 28,
-                color: COLORS.ink,
-                fontSize: textSize,
-                lineHeight: 1,
-                fontWeight: 820,
-                whiteSpace: 'nowrap',
+                overflow: 'hidden',
               }}
             >
-              <span
+              <div
                 style={{
-                  display: 'inline-block',
-                  opacity: meet,
-                  flexShrink: 0,
-                  transform: `translateY(${interpolate(meet, [0, 1], [16, 0])}px)`,
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: 820,
+                  height: textSize * 1.14,
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 28,
+                  color: COLORS.ink,
+                  fontSize: textSize,
+                  lineHeight: 1,
+                  fontWeight: 820,
+                  whiteSpace: 'nowrap',
                 }}
               >
-                Meet
-              </span>
-              <span style={{ display: 'inline-block', minWidth: 410, flexShrink: 0 }}>
-                {appName.slice(0, visibleLetters)}
-              </span>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    opacity: meet,
+                    flexShrink: 0,
+                    transform: `translateY(${interpolate(meet, [0, 1], [16, 0])}px)`,
+                    ...darkText(frame),
+                  }}
+                >
+                  Meet
+                </span>
+                <span style={{ display: 'inline-block', minWidth: 410, flexShrink: 0, ...darkText(frame) }}>
+                  {appName.slice(0, visibleLetters)}
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                position: 'absolute',
+                left: logoLeft,
+                top: logoTop,
+                zIndex: 3,
+                width: logoSize,
+                height: logoSize,
+                transform: `translateY(${logoY}px) scale(${logoScale})`,
+              }}
+            >
+              <SarathyAppIcon size={logoSize} opacityValue={logoOpacity} />
             </div>
           </div>
-
-          <div
-            style={{
-              position: 'absolute',
-              left: logoLeft,
-              top: logoTop,
-              zIndex: 3,
-              width: logoSize,
-              height: logoSize,
-              transform: `scale(${logoScale})`,
-            }}
-          >
-            <SarathyAppIcon size={logoSize} opacityValue={logoIn} />
-          </div>
-        </div>
+        </FocusSceneScale>
       </Canvas>
     </AbsoluteFill>
   )
@@ -838,12 +1017,11 @@ function SafePanel({ frame }: { frame: number }) {
   )
 }
 
+const trackingHeadlineWords = ['Sarathy', 'tracks', 'everything:'] as const
 const trackedItems = [
   'Monthly expenditure',
   'Daily spending',
-  'Spending categories',
   'Fixed costs',
-  'Income',
   'Safe-to-spend',
   'Money mood',
   'Remittances',
@@ -851,11 +1029,58 @@ const trackedItems = [
   'Money checks',
 ]
 
-function ScrollingTrackedTerm({ frame }: { frame: number }) {
-  const start = 32
-  const slot = 18
-  const transition = 8
-  const itemHeight = 94
+function DropWord({
+  frame,
+  index,
+  text,
+  tone,
+  size,
+}: {
+  frame: number
+  index: number
+  text: string
+  tone: 'ink' | 'orange'
+  size: number
+}) {
+  const p = ease(frame, index * 4, 13)
+  const lineHeight = size * 1.22
+  const isRevealing = p < 0.999
+
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        height: lineHeight,
+        overflow: isRevealing ? 'hidden' : 'visible',
+        verticalAlign: 'top',
+      }}
+    >
+      <span
+        style={{
+          display: 'inline-block',
+          fontSize: size,
+          lineHeight: `${lineHeight}px`,
+          fontWeight: 820,
+          whiteSpace: 'nowrap',
+          opacity: p,
+          transform: `translateY(${interpolate(p, [0, 1], [-lineHeight, 0])}px)`,
+          ...(tone === 'orange' ? orangeText(frame) : darkText(frame)),
+        }}
+      >
+        {text}
+      </span>
+    </span>
+  )
+}
+
+function RollingTrackedTerm({ frame }: { frame: number }) {
+  const start = 34
+  const rollSpeed = 1.2
+  const slot = 17 / rollSpeed
+  const transition = 7 / rollSpeed
+  const itemHeight = 112
+  const textBoxHeight = 148
+  const viewportHeight = 156
   const relative = Math.max(0, frame - start)
   const activeIndex = Math.min(trackedItems.length - 1, Math.floor(relative / slot))
   const nextIndex = Math.min(trackedItems.length - 1, activeIndex + 1)
@@ -867,34 +1092,40 @@ function ScrollingTrackedTerm({ frame }: { frame: number }) {
         easing: EASE_OUT,
       })
     : 0
-  const termEnter = ease(frame, start - 12, 16)
+  const enter = ease(frame, start - 8, 12)
   const currentY = interpolate(slide, [0, 1], [0, -itemHeight])
   const nextY = interpolate(slide, [0, 1], [itemHeight, 0])
+  const isSliding = canAdvance && slide > 0.001 && slide < 0.999
+
+  const termStyle: CSSProperties = {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: '100%',
+    height: textBoxHeight,
+    fontFamily: FEATURE_FONT,
+    fontSize: 66,
+    lineHeight: '1.18',
+    fontWeight: 820,
+    whiteSpace: 'nowrap',
+    ...orangeText(frame),
+  }
 
   return (
     <div
       style={{
         position: 'relative',
-        width: 790,
-        height: itemHeight,
-        overflow: 'hidden',
-        opacity: termEnter,
+        width: 920,
+        height: viewportHeight,
+        overflow: isSliding ? 'hidden' : 'visible',
+        opacity: enter,
       }}
     >
       <div
         style={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          width: '100%',
-          height: itemHeight,
-          color: COLORS.orange,
-          fontSize: 66,
-          lineHeight: `${itemHeight}px`,
-          fontWeight: 820,
-          whiteSpace: 'nowrap',
+          ...termStyle,
           transform: `translateY(${currentY}px)`,
-          opacity: interpolate(slide, [0, 1], [1, 0.12]),
+          opacity: interpolate(slide, [0, 1], [1, 0]),
         }}
       >
         {trackedItems[activeIndex]}
@@ -902,18 +1133,9 @@ function ScrollingTrackedTerm({ frame }: { frame: number }) {
       {canAdvance && (
         <div
           style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            width: '100%',
-            height: itemHeight,
-            color: COLORS.orange,
-            fontSize: 66,
-            lineHeight: `${itemHeight}px`,
-            fontWeight: 820,
-            whiteSpace: 'nowrap',
+            ...termStyle,
             transform: `translateY(${nextY}px)`,
-            opacity: interpolate(slide, [0, 1], [0.12, 1]),
+            opacity: interpolate(slide, [0, 1], [0, 1]),
           }}
         >
           {trackedItems[nextIndex]}
@@ -925,38 +1147,237 @@ function ScrollingTrackedTerm({ frame }: { frame: number }) {
 
 function MethodScene({ duration }: { duration: number }) {
   const frame = useCurrentFrame()
-  const enter = ease(frame, 0, 18)
+  const sceneExit = ease(frame, duration - 16, 16, EASE_IN)
+  let wordIndex = 0
+
   return (
-    <AbsoluteFill style={{ opacity: opacity(frame, duration) }}>
+    <AbsoluteFill style={{ opacity: 1 - sceneExit }}>
+      <Canvas>
+        <Header frame={frame} />
+        <FocusSceneScale>
+          <div
+            style={{
+              position: 'absolute',
+              display: 'flex',
+              left: 480,
+              top: 486,
+              alignItems: 'flex-start',
+              gap: 46,
+            }}
+          >
+            <div
+              style={{
+                width: 112,
+                height: 112,
+              }}
+            >
+              <SarathyAppIcon size={112} />
+            </div>
+            <div
+              style={{
+                width: 1120,
+                display: 'grid',
+                gap: 6,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  columnGap: 20,
+                  rowGap: 8,
+                }}
+              >
+                {trackingHeadlineWords.map((word) => {
+                  const currentIndex = wordIndex
+                  wordIndex += 1
+                  return (
+                    <DropWord
+                      key={`${word}-${currentIndex}`}
+                      frame={frame}
+                      index={currentIndex}
+                      text={word}
+                      tone="ink"
+                      size={72}
+                    />
+                  )
+                })}
+              </div>
+              <RollingTrackedTerm frame={frame} />
+            </div>
+          </div>
+        </FocusSceneScale>
+      </Canvas>
+    </AbsoluteFill>
+  )
+}
+
+const aiPhrases = [
+  'gives personalized suggestions',
+  'plans your finances',
+  'predicts upcoming costs',
+  'spots spending patterns',
+  'finds saving opportunities',
+  'builds smarter budgets',
+]
+
+function HorizontalRollingPhrase({
+  frame,
+  start = 54,
+  phraseWidth = 1520,
+  fontSize = 88,
+}: {
+  frame: number
+  start?: number
+  phraseWidth?: number
+  fontSize?: number
+}) {
+  const slot = 40
+  const transition = 14
+  const relative = Math.max(0, frame - start)
+  const activeIndex = Math.min(aiPhrases.length - 1, Math.floor(relative / slot))
+  const nextIndex = Math.min(aiPhrases.length - 1, activeIndex + 1)
+  const slotFrame = relative - activeIndex * slot
+  const canAdvance = activeIndex < aiPhrases.length - 1
+  const slide = canAdvance
+    ? interpolate(slotFrame, [slot - transition, slot], [0, 1], {
+        ...clamp,
+        easing: HORIZONTAL_ROLL_EASE,
+      })
+    : 0
+  const enter = ease(frame, start, 14)
+  const currentX = interpolate(slide, [0, 1], [0, phraseWidth])
+  const nextX = interpolate(slide, [0, 1], [-phraseWidth, 0])
+  const currentOpacity = interpolate(slide, [0, 0.82, 1], [1, 0.8, 0], clamp)
+  const nextOpacity = interpolate(slide, [0, 0.18, 1], [0, 0.2, 1], clamp)
+
+  const phraseStyle: CSSProperties = {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: phraseWidth,
+    fontFamily: FEATURE_FONT,
+    fontSize,
+    lineHeight: '1.16',
+    fontWeight: 840,
+    whiteSpace: 'nowrap',
+    willChange: 'transform, opacity',
+    ...orangeText(frame),
+  }
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: phraseWidth,
+        height: 150,
+        overflowX: 'hidden',
+        overflowY: 'visible',
+        opacity: enter,
+      }}
+    >
+      <div
+        style={{
+          ...phraseStyle,
+          transform: `translate3d(${currentX}px, 0, 0)`,
+          opacity: currentOpacity,
+        }}
+      >
+        {aiPhrases[activeIndex]}
+      </div>
+      {canAdvance && (
+        <div
+          style={{
+            ...phraseStyle,
+            transform: `translate3d(${nextX}px, 0, 0)`,
+            opacity: nextOpacity,
+          }}
+        >
+          {aiPhrases[nextIndex]}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CloseScene({ duration }: { duration: number }) {
+  const frame = useCurrentFrame()
+  const headlineWords = ['Powered', 'by', 'advanced', 'AI']
+  const that = ease(frame, 38, 14)
+
+  return (
+    <AbsoluteFill>
       <Canvas>
         <Header frame={frame} />
         <div
           style={{
             position: 'absolute',
             inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transform: `translateY(${interpolate(enter, [0, 1], [18, 0])}px)`,
-            opacity: enter,
+            display: 'grid',
+            placeItems: 'center',
           }}
         >
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 24,
-              width: 1700,
-              color: COLORS.ink,
-              fontSize: 66,
-              lineHeight: 1,
-              fontWeight: 820,
-              whiteSpace: 'nowrap',
+              width: 1840,
+              display: 'grid',
+              gap: 22,
+              transform: `translateY(${interpolate(ease(frame, 4, 24), [0, 1], [26, 0])}px)`,
             }}
           >
-            <span>Sarathy tracks everything:</span>
-            <ScrollingTrackedTerm frame={frame} />
+            <div
+              style={{
+                fontSize: 97.2,
+                lineHeight: 1.04,
+                fontWeight: 840,
+                letterSpacing: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                gap: 26,
+              }}
+            >
+              {headlineWords.map((word, index) => {
+                const wordIn = ease(frame, -6 + index * 10, 14)
+                return (
+                  <span
+                    key={word}
+                    style={{
+                      opacity: wordIn,
+                      transform: `translateY(${interpolate(wordIn, [0, 1], [18, 0])}px)`,
+                      display: 'inline-block',
+                      ...(index >= 2 ? orangeText(frame) : darkText(frame)),
+                    }}
+                  >
+                    {word}
+                  </span>
+                )
+              })}
+            </div>
+            <div
+              style={{
+                height: 150,
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'center',
+                gap: 24,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 88,
+                  lineHeight: 1.16,
+                  fontWeight: 840,
+                  opacity: that,
+                  transform: `translateY(${interpolate(that, [0, 1], [18, 0])}px)`,
+                  display: 'inline-block',
+                  ...darkText(frame),
+                }}
+              >
+                that
+              </div>
+              <HorizontalRollingPhrase frame={frame} start={54} phraseWidth={1520} fontSize={88} />
+            </div>
           </div>
         </div>
       </Canvas>
@@ -964,86 +1385,417 @@ function MethodScene({ duration }: { duration: number }) {
   )
 }
 
-function CloseScene({ duration, appName, cta }: { duration: number; appName: string; cta: string }) {
-  const frame = useCurrentFrame()
+const chatPrompt = 'Hey, could you give me a summary of my spending for the last seven days?'
+const chatResponse =
+  "Hey Lucas, here's your spending for the last seven days. You spent S$184.70 total, led by food at S$76, transport at S$32, and subscriptions at S$21. You are still S$58 under your weekly plan."
+
+function ChatSparkBadge({ size = 44, iconSize = 22 }: { size?: number; iconSize?: number }) {
   return (
-    <AbsoluteFill style={{ opacity: opacity(frame, duration, false) }}>
-      <Canvas dark>
-        <Header frame={frame} light />
-        <div style={{ position: 'absolute', left: 112, top: 315 }}>
-          <Title frame={frame} start={8} light size={94} width={850}>
-            SGD 42 safe.
-          </Title>
-          <div
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.3),
+        background: '#FFF3E8',
+        color: '#F97316',
+        display: 'grid',
+        placeItems: 'center',
+        flex: '0 0 auto',
+      }}
+    >
+      <Sparkles size={iconSize} strokeWidth={2.3} />
+    </div>
+  )
+}
+
+function TypingDots({ frame }: { frame: number }) {
+  return (
+    <div style={{ display: 'flex', gap: 7, alignItems: 'center', height: 28 }}>
+      {[0, 1, 2].map((index) => {
+        const dot = interpolate(Math.sin((frame + index * 5) * 0.34), [-1, 1], [0.34, 1])
+        return (
+          <span
+            key={index}
             style={{
-              marginTop: 58,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 15,
-              borderRadius: 16,
-              background: COLORS.surface,
-              color: COLORS.dark,
-              padding: '20px 26px',
-              fontSize: 25,
-              fontWeight: 780,
-              ...fadeUp(frame, 34),
+              width: 9,
+              height: 9,
+              borderRadius: 999,
+              background: '#7A6254',
+              opacity: dot,
+              transform: `translateY(${interpolate(dot, [0.34, 1], [3, -3])}px)`,
             }}
-          >
-            {cta}
-            <ArrowRight size={27} />
-          </div>
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+function ProductChatFrame({
+  frame,
+  promptText = '',
+  showUser = false,
+  showTyping = false,
+  responseText = '',
+  responseProgress = 0,
+  compact = false,
+}: {
+  frame: number
+  promptText?: string
+  showUser?: boolean
+  showTyping?: boolean
+  responseText?: string
+  responseProgress?: number
+  compact?: boolean
+}) {
+  const chips = [
+    'Can I afford a purchase today?',
+    'What did I spend today?',
+    'Check a product price in SGD',
+    'What changed my safe-to-spend?',
+  ]
+  const responseChars = Math.floor(responseText.length * responseProgress)
+  const statsIn = ease(responseProgress * 30, 20, 10)
+  const surfaceWidth = compact ? 1540 : 1600
+  const surfaceHeight = compact ? 900 : 930
+  const headerHeight = compact ? 118 : 126
+  const signalHeight = compact ? 104 : 108
+
+  return (
+    <div
+      style={{
+        width: surfaceWidth,
+        height: surfaceHeight,
+        borderRadius: compact ? 42 : 38,
+        overflow: 'hidden',
+        background: '#F8F4EF',
+        border: '1px solid rgba(237,231,223,0.9)',
+        boxShadow: compact
+          ? '0 60px 140px rgba(30,10,46,0.24)'
+          : '0 44px 120px rgba(30,10,46,0.20)',
+        color: '#1C0A00',
+        fontFamily: FONT,
+      }}
+    >
+      <div
+        style={{
+          height: headerHeight,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 46px',
+          borderBottom: '1px solid #EDE7DF',
+          background: '#F8F4EF',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: compact ? 42 : 46, fontWeight: 850, lineHeight: 1 }}>Sarathy</div>
+          <div style={{ marginTop: 12, fontSize: compact ? 22 : 24, color: '#7A6254' }}>Hype friend for Lucas</div>
         </div>
         <div
           style={{
-            position: 'absolute',
-            right: 200,
-            top: 266,
-            width: 470,
-            height: 470,
-            borderRadius: 42,
-            background: COLORS.greenSoft,
-            color: COLORS.green,
-            display: 'grid',
-            placeItems: 'center',
-            boxShadow: '0 40px 140px rgba(0,0,0,0.34)',
-            ...fadeUp(frame, 34),
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+            padding: '15px 22px',
+            borderRadius: 24,
+            color: '#F43F5E',
+            background: '#FFF1F4',
+            fontSize: compact ? 22 : 24,
+            fontWeight: 650,
           }}
         >
-          <ShieldCheck size={150} strokeWidth={1.75} />
+          <AlertCircle size={25} strokeWidth={2.3} />
+          Ground me
+        </div>
+      </div>
+
+      <div
+        style={{
+          height: signalHeight,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 24,
+          padding: '0 46px',
+          borderBottom: '1px solid #EDE7DF',
+          background: '#FFFFFF',
+        }}
+      >
+        <ChatSparkBadge size={compact ? 58 : 62} iconSize={compact ? 28 : 30} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: compact ? 24 : 26, fontWeight: 760 }}>Safe-to-spend today: S$115</div>
+          <div style={{ marginTop: 5, fontSize: compact ? 22 : 23, color: '#7A6254' }}>Spent today: S$0 of S$115 allowance</div>
+        </div>
+        <div
+          style={{
+            borderRadius: 999,
+            background: '#F97316',
+            color: '#FFFFFF',
+            padding: '17px 28px',
+            fontSize: compact ? 22 : 24,
+            fontWeight: 760,
+          }}
+        >
+          Review
+        </div>
+      </div>
+
+      <div
+        style={{
+          position: 'relative',
+          height: surfaceHeight - headerHeight - signalHeight - 180,
+          padding: compact ? '34px 58px' : '40px 60px',
+        }}
+      >
+        {showUser && (
           <div
             style={{
-              position: 'absolute',
-              bottom: 92,
-              color: COLORS.dark,
-              fontSize: 36,
-              fontWeight: 800,
+              display: 'flex',
+              justifyContent: 'flex-end',
+              opacity: ease(frame, 138, 10),
+              transform: `translateY(${interpolate(ease(frame, 138, 10), [0, 1], [20, 0])}px)`,
             }}
           >
-            {appName}
+            <div
+              style={{
+                maxWidth: 980,
+                borderRadius: '30px 8px 30px 30px',
+                background: '#F97316',
+                color: '#FFFFFF',
+                padding: '24px 30px',
+                fontSize: compact ? 25 : 29,
+                lineHeight: 1.38,
+                fontWeight: 600,
+              }}
+            >
+              {chatPrompt}
+            </div>
+          </div>
+        )}
+
+        {showTyping && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 18,
+              marginTop: showUser ? 36 : 0,
+              opacity: ease(frame, 152, 8),
+            }}
+          >
+            <ChatSparkBadge size={42} iconSize={20} />
+            <div
+              style={{
+                borderRadius: '8px 28px 28px 28px',
+                background: '#FFF3E8',
+                padding: '20px 24px',
+              }}
+            >
+              <TypingDots frame={frame} />
+            </div>
+          </div>
+        )}
+
+        {responseProgress > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 18,
+              marginTop: showUser ? 36 : 0,
+              opacity: ease(frame, 174, 8),
+            }}
+          >
+            <ChatSparkBadge size={42} iconSize={20} />
+            <div
+              style={{
+                maxWidth: 1180,
+                borderRadius: '8px 28px 28px 28px',
+                background: '#FFF3E8',
+                padding: '24px 30px',
+                fontSize: compact ? 25 : 29,
+                lineHeight: 1.42,
+                color: '#1C0A00',
+              }}
+            >
+              <div>{responseText.slice(0, responseChars)}</div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 14,
+                  marginTop: 22,
+                  opacity: statsIn,
+                  transform: `translateY(${interpolate(statsIn, [0, 1], [12, 0])}px)`,
+                }}
+              >
+                {[
+                  ['Total', 'S$184.70'],
+                  ['Top category', 'Food S$76'],
+                  ['Plan', 'S$58 under'],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    style={{
+                      borderRadius: 18,
+                      border: '1px solid rgba(249,115,22,0.18)',
+                      background: '#FFFFFF',
+                      padding: '16px 18px',
+                      minWidth: 168,
+                    }}
+                  >
+                    <div style={{ fontSize: 16, color: '#7A6254', fontWeight: 700 }}>{label}</div>
+                    <div style={{ marginTop: 5, fontSize: 24, fontWeight: 840 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div
+        style={{
+          height: 180,
+          padding: '24px 30px 28px',
+          background: '#F8F4EF',
+          borderTop: '1px solid #EDE7DF',
+        }}
+      >
+        <div style={{ display: 'flex', gap: 14, marginBottom: 20, overflow: 'hidden' }}>
+          {chips.map((chip) => (
+            <div
+              key={chip}
+              style={{
+                borderRadius: 999,
+                border: '1px solid rgba(249,115,22,0.24)',
+                color: '#F97316',
+                background: '#FFF3E8',
+                padding: '12px 20px',
+                fontSize: compact ? 19 : 21,
+                fontWeight: 650,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {chip}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <div
+            style={{
+              flex: 1,
+              height: 72,
+              borderRadius: 24,
+              border: '1px solid #EDE7DF',
+              background: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 28px',
+              fontSize: compact ? 24 : 27,
+              color: promptText ? '#1C0A00' : '#9CA3AF',
+              boxShadow: '0 4px 16px rgba(30,10,46,0.05)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+            }}
+          >
+            {promptText || 'Ask Sarathy anything...'}
+          </div>
+          <div
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 22,
+              background: promptText ? '#F97316' : '#FDE8D0',
+              color: promptText ? '#FFFFFF' : '#F97316',
+              display: 'grid',
+              placeItems: 'center',
+              flex: '0 0 auto',
+            }}
+          >
+            <SendHorizontal size={34} strokeWidth={2.4} />
           </div>
         </div>
-      </Canvas>
+      </div>
+    </div>
+  )
+}
+
+function ChatbotScene() {
+  const frame = useCurrentFrame()
+  const move = ease(frame, 0, 58)
+  const overviewY = interpolate(move, [0, 1], [130, -310])
+  const overviewScale = interpolate(move, [0, 1], [1.03, 0.78])
+  const overviewTilt = interpolate(move, [0, 1], [12, 45])
+  const overviewOpacity = 1 - ease(frame, 58, 8, EASE_IN)
+  const frontStart = 66
+  const frontIn = ease(frame, frontStart, 12)
+  const typedChars = Math.floor(interpolate(frame, [84, 138], [0, chatPrompt.length], clamp))
+  const typedPrompt = chatPrompt.slice(0, typedChars)
+  const hasSent = frame >= 142
+  const showTyping = frame >= 154 && frame < 174
+  const responseProgress = interpolate(frame, [174, 232], [0, 1], clamp)
+
+  return (
+    <AbsoluteFill style={{ ...base, overflow: 'hidden' }}>
+      {frame < frontStart && (
+        <AbsoluteFill
+          style={{
+            display: 'grid',
+            placeItems: 'center',
+            perspective: 1600,
+            opacity: overviewOpacity,
+          }}
+        >
+          <div
+            style={{
+              transform: `translateY(${overviewY}px) rotateX(${overviewTilt}deg) scale(${overviewScale})`,
+              transformOrigin: '50% 100%',
+              transformStyle: 'preserve-3d',
+            }}
+          >
+            <ProductChatFrame frame={frame} compact />
+          </div>
+        </AbsoluteFill>
+      )}
+
+      {frame >= frontStart && (
+        <AbsoluteFill
+          style={{
+            display: 'grid',
+            placeItems: 'center',
+            opacity: frontIn,
+            transform: `translateY(${interpolate(frontIn, [0, 1], [34, 0])}px)`,
+          }}
+        >
+          <ProductChatFrame
+            frame={frame}
+            promptText={hasSent ? '' : typedPrompt}
+            showUser={hasSent}
+            showTyping={showTyping}
+            responseText={chatResponse}
+            responseProgress={responseProgress}
+          />
+        </AbsoluteFill>
+      )}
     </AbsoluteFill>
   )
 }
 
-export const SarathyPromo = ({ appName, cta }: SarathyPromoProps) => {
+export const SarathyPromo = ({ appName }: SarathyPromoProps) => {
   const { fps } = useVideoConfig()
   const premount = fps
   const starts = {
     scattered: 0,
-    tracker: sceneDurations.scattered,
-    intro: sceneDurations.scattered + sceneDurations.tracker,
-    method: sceneDurations.scattered + sceneDurations.tracker + sceneDurations.intro,
-    close:
-      sceneDurations.scattered +
-      sceneDurations.tracker +
-      sceneDurations.intro +
-      sceneDurations.method,
+    tracker: TRACKER_START_FRAME,
+    intro: SEQUENCE_2_END_FRAME,
+    method: SEQUENCE_2_END_FRAME + sceneDurations.intro,
+    close: SEQUENCE_4_END_FRAME,
+    chatbot: SEQUENCE_5_END_FRAME,
   }
 
   return (
-    <AbsoluteFill style={{ ...base, background: COLORS.bg }}>
+    <AbsoluteFill style={{ ...base, background: '#000000' }}>
+      <VideoShaderBackground />
       <Sequence from={starts.scattered} durationInFrames={sceneDurations.scattered} premountFor={premount}>
         <ScatteredScene duration={sceneDurations.scattered} />
       </Sequence>
@@ -1057,7 +1809,10 @@ export const SarathyPromo = ({ appName, cta }: SarathyPromoProps) => {
         <MethodScene duration={sceneDurations.method} />
       </Sequence>
       <Sequence from={starts.close} durationInFrames={sceneDurations.close} premountFor={premount}>
-        <CloseScene duration={sceneDurations.close} appName={appName} cta={cta} />
+        <CloseScene duration={sceneDurations.close} />
+      </Sequence>
+      <Sequence from={starts.chatbot} durationInFrames={sceneDurations.chatbot} premountFor={premount}>
+        <ChatbotScene />
       </Sequence>
     </AbsoluteFill>
   )

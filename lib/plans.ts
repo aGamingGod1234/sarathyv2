@@ -32,7 +32,7 @@ export const PLAN_DEFINITIONS: Record<PlanTier, PlanDefinition> = {
       'Safe-to-spend check',
       'Basic transaction logging',
       'Starter goals and money story',
-      'Full current money context in chat',
+      'Latest 5 Sarathy chat turns saved',
     ],
   },
   plus: {
@@ -45,7 +45,7 @@ export const PLAN_DEFINITIONS: Record<PlanTier, PlanDefinition> = {
     cta: 'Prepare Plus upgrade',
     highlights: [
       'Unlimited imports and receipt scans',
-      'Longer Sarathy chat memory',
+      'Unlimited saved Sarathy chat history',
       'Advanced future scenarios',
       'Monthly personal money report',
       'Family and remittance guardrails',
@@ -58,8 +58,8 @@ export const PLAN_FEATURES: PlanFeature[] = [
     id: 'ai-memory',
     title: 'Sarathy context and memory',
     description: 'The companion can use your real app data for direct, practical answers.',
-    free: 'Full current profile, budget, transactions, fixed costs, goals, and mood context',
-    plus: 'Longer historical memory and richer personal recall',
+    free: 'Current money context plus the latest 5 saved chat turns',
+    plus: 'Current money context plus unlimited saved chat history',
   },
   {
     id: 'imports',

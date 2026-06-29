@@ -120,10 +120,20 @@ export default function SarathyPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.replace('/app/login'); return }
       const { monthStart, nextMonthStart } = getCurrentMonthRange()
+      const historyRequest = fetch('/api/sarathy/history').then(async res => {
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          return {
+            data: [],
+            error: { message: payload?.message || 'Could not load Sarathy chat history.' },
+          }
+        }
+        return { data: payload?.messages || [], error: null }
+      })
 
-      const [profileRes, messagesRes, entriesRes, fixedRes] = await Promise.all([
+      const [profileRes, historyRes, entriesRes, fixedRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('chat_messages').select('*').eq('user_id', user.id).order('created_at', { ascending: true }).limit(50),
+        historyRequest,
         supabase.from('budget_entries').select('*').eq('user_id', user.id).gte('entry_date', monthStart).lt('entry_date', nextMonthStart),
         supabase.from('fixed_spending').select('*').eq('user_id', user.id).eq('is_active', true),
       ])
@@ -146,7 +156,7 @@ export default function SarathyPage() {
         })
       }
 
-      const existingMessages = (messagesRes.data || []) as ChatMessage[]
+      const existingMessages = (historyRes.data || []) as ChatMessage[]
 
       // If no messages, generate an opening message
       if (existingMessages.length === 0 && profileRes.data) {

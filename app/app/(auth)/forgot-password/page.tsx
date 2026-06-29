@@ -8,8 +8,23 @@ import BrandLogo from '@/components/ui/BrandLogo'
 
 type ResetStage = 'request' | 'verify' | 'reset'
 
+type ErrorState = {
+  message: string
+  code?: string
+  suggestion?: string
+}
+
 function cleanOtp(value: string) {
   return value.replace(/\D/g, '').slice(0, 6)
+}
+
+function toErrorState(err: any, fallback = 'Something went wrong'): ErrorState {
+  if (typeof err === 'string') return { message: err }
+  return {
+    message: err?.message || fallback,
+    code: err?.code,
+    suggestion: err?.suggestion,
+  }
 }
 
 export default function ForgotPasswordPage() {
@@ -24,7 +39,7 @@ export default function ForgotPasswordPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<ErrorState | null>(null)
 
   useEffect(() => {
     if (stage === 'request' || cooldown <= 0) return
@@ -41,7 +56,11 @@ export default function ForgotPasswordPage() {
     const payload = await res.json().catch(() => ({}))
     if (!res.ok) {
       if (payload?.cooldownSeconds) setCooldown(payload.cooldownSeconds)
-      throw new Error(payload?.error || 'Could not send reset code.')
+      throw {
+        message: payload?.error || 'Could not send reset code.',
+        code: payload?.code,
+        suggestion: payload?.suggestion,
+      }
     }
     setCooldown(payload?.cooldownSeconds || 60)
   }
@@ -49,13 +68,13 @@ export default function ForgotPasswordPage() {
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
+    setError(null)
 
     try {
       await requestCode()
       setStage('verify')
     } catch (err: any) {
-      setError(err.message || 'Something went wrong')
+      setError(toErrorState(err))
     } finally {
       setLoading(false)
     }
@@ -64,12 +83,12 @@ export default function ForgotPasswordPage() {
   const handleResend = async () => {
     if (cooldown > 0 || loading) return
     setLoading(true)
-    setError('')
+    setError(null)
 
     try {
       await requestCode()
     } catch (err: any) {
-      setError(err.message || 'Something went wrong')
+      setError(toErrorState(err))
     } finally {
       setLoading(false)
     }
@@ -78,7 +97,7 @@ export default function ForgotPasswordPage() {
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
+    setError(null)
 
     try {
       const res = await fetch('/api/auth/forgot-password/verify', {
@@ -91,7 +110,7 @@ export default function ForgotPasswordPage() {
       setResetToken(payload.resetToken)
       setStage('reset')
     } catch (err: any) {
-      setError(err.message || 'Something went wrong')
+      setError(toErrorState(err))
     } finally {
       setLoading(false)
     }
@@ -100,11 +119,11 @@ export default function ForgotPasswordPage() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
+    setError(null)
 
     if (password !== confirmPassword) {
       setLoading(false)
-      setError('Passwords do not match.')
+      setError({ message: 'Passwords do not match.' })
       return
     }
 
@@ -118,7 +137,7 @@ export default function ForgotPasswordPage() {
       if (!res.ok) throw new Error(payload?.error || 'Could not reset password.')
       router.replace('/app/login')
     } catch (err: any) {
-      setError(err.message || 'Something went wrong')
+      setError(toErrorState(err))
       setLoading(false)
     }
   }
@@ -263,7 +282,13 @@ export default function ForgotPasswordPage() {
 
           {error && (
             <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-danger" role="alert" aria-live="polite">
-              {error}
+              <p>{error.message}</p>
+              {error.code && (
+                <p className="mt-2 text-xs font-semibold uppercase tracking-wide">Code: {error.code}</p>
+              )}
+              {error.suggestion && (
+                <p className="mt-2 text-xs leading-relaxed">What to do: {error.suggestion}</p>
+              )}
             </div>
           )}
 

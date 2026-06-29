@@ -23,6 +23,8 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 NEXTAUTH_SECRET=generate-a-long-random-secret
 NEXTAUTH_URL=https://your-railway-domain
 OPENAI_API_KEY=...
+RESEND_API_KEY=...
+OTP_EMAIL_FROM=Sarathy <verify@your-verified-domain.com>
 ```
 
 `OPENAI_API_KEY` powers receipt image scanning and text statement categorization through `gpt-5.4-nano` with low reasoning effort. If you want to override those defaults later, set:
@@ -31,6 +33,8 @@ OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.4-nano
 OPENAI_REASONING_EFFORT=low
 ```
+
+`RESEND_API_KEY` and `OTP_EMAIL_FROM` power email verification and password reset codes. For production sign-ups, verify a sending domain in Resend and use an address on that domain. Do not use `onboarding@resend.dev` for public users; Resend restricts that test sender and Sarathy will return `OTP_FROM_DOMAIN_RESTRICTED` until the sender is changed.
 
 Google sign-in is intentionally paused. To turn it back on later, set all three values:
 

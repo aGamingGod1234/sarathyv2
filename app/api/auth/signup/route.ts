@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { isValidEmail, issueOtp, normalizeEmail, OtpCooldownError } from '@/lib/otp'
+import {
+  isValidEmail,
+  issueOtp,
+  normalizeEmail,
+  OtpCooldownError,
+  OtpDeliveryError,
+  otpDeliveryErrorPayload,
+} from '@/lib/otp'
 
 export async function POST(req: Request) {
   try {
@@ -85,6 +92,10 @@ export async function POST(req: Request) {
       )
     }
 
+    if (err instanceof OtpDeliveryError) {
+      return NextResponse.json(otpDeliveryErrorPayload(err), { status: err.status })
+    }
+
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       return NextResponse.json(
         {
@@ -93,16 +104,6 @@ export async function POST(req: Request) {
           action: '/app/login',
         },
         { status: 409 },
-      )
-    }
-
-    if (err instanceof Error && err.message.includes('verification code')) {
-      return NextResponse.json(
-        {
-          error: 'Could not send the verification code. Check the email address and try again in a minute.',
-          code: 'OTP_DELIVERY_FAILED',
-        },
-        { status: 503 },
       )
     }
 

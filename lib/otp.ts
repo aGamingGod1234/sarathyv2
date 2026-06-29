@@ -6,6 +6,19 @@ export type OtpPurpose = 'email-verification' | 'password-reset'
 export const OTP_TTL_MS = 5 * 60 * 1000
 export const OTP_COOLDOWN_MS = 60 * 1000
 
+export type OtpDeliveryErrorCode =
+  | 'OTP_EMAIL_NOT_CONFIGURED'
+  | 'OTP_FROM_DOMAIN_RESTRICTED'
+  | 'OTP_FROM_DOMAIN_UNVERIFIED'
+  | 'OTP_INVALID_SENDER'
+  | 'OTP_INVALID_RECIPIENT'
+  | 'OTP_EMAIL_PROVIDER_AUTH_FAILED'
+  | 'OTP_EMAIL_REQUEST_BLOCKED'
+  | 'OTP_EMAIL_RATE_LIMITED'
+  | 'OTP_EMAIL_QUOTA_EXCEEDED'
+  | 'OTP_EMAIL_PROVIDER_UNAVAILABLE'
+  | 'OTP_DELIVERY_FAILED'
+
 type IssueOtpInput = {
   email: string
   purpose: OtpPurpose
@@ -21,6 +34,122 @@ export class OtpCooldownError extends Error {
     super(`Please wait ${cooldownSeconds} seconds before requesting another code.`)
     this.name = 'OtpCooldownError'
   }
+}
+
+type OtpDeliveryErrorDetails = {
+  message: string
+  suggestion: string
+  status: number
+}
+
+const OTP_DELIVERY_ERROR_DETAILS: Record<OtpDeliveryErrorCode, OtpDeliveryErrorDetails> = {
+  OTP_EMAIL_NOT_CONFIGURED: {
+    message: 'Email verification is not configured on the server.',
+    suggestion: 'Set RESEND_API_KEY and OTP_EMAIL_FROM on the app service before accepting email sign-ups.',
+    status: 503,
+  },
+  OTP_FROM_DOMAIN_RESTRICTED: {
+    message: 'Email verification is not configured for public sign-ups yet.',
+    suggestion: 'Verify a sending domain in Resend, then set OTP_EMAIL_FROM to an address on that domain. Do not use onboarding@resend.dev for public users.',
+    status: 503,
+  },
+  OTP_FROM_DOMAIN_UNVERIFIED: {
+    message: 'Email verification is using a sender domain that is not verified.',
+    suggestion: 'Finish domain verification in Resend or change OTP_EMAIL_FROM to an already verified sender.',
+    status: 503,
+  },
+  OTP_INVALID_SENDER: {
+    message: 'Email verification is using an invalid sender address.',
+    suggestion: 'Set OTP_EMAIL_FROM in the format "Sarathy <verify@your-verified-domain.com>".',
+    status: 503,
+  },
+  OTP_INVALID_RECIPIENT: {
+    message: 'Could not send the verification code to that email address.',
+    suggestion: 'Check the email address for typos. If it looks right, try a different address or contact support.',
+    status: 400,
+  },
+  OTP_EMAIL_PROVIDER_AUTH_FAILED: {
+    message: 'Email verification could not authenticate with the email provider.',
+    suggestion: 'Check that RESEND_API_KEY is present, active, and belongs to the Resend account that owns the sender domain.',
+    status: 503,
+  },
+  OTP_EMAIL_REQUEST_BLOCKED: {
+    message: 'Email verification was blocked by the email provider.',
+    suggestion: 'Confirm the email request includes a User-Agent header, then check the API key and sender domain in Resend.',
+    status: 503,
+  },
+  OTP_EMAIL_RATE_LIMITED: {
+    message: 'Email verification is being rate limited by the email provider.',
+    suggestion: 'Wait a few minutes before trying again. If this repeats, review Resend rate limits and app retry volume.',
+    status: 503,
+  },
+  OTP_EMAIL_QUOTA_EXCEEDED: {
+    message: 'Email verification has hit the email provider sending limit.',
+    suggestion: 'Review the Resend account limit or billing plan, then try again after quota is available.',
+    status: 503,
+  },
+  OTP_EMAIL_PROVIDER_UNAVAILABLE: {
+    message: 'Email verification is temporarily unavailable.',
+    suggestion: 'Retry in a few minutes. If it continues, check Resend status and the app service logs.',
+    status: 503,
+  },
+  OTP_DELIVERY_FAILED: {
+    message: 'Could not send the verification code.',
+    suggestion: 'Check the app service logs for the email provider response, then retry after the provider issue is fixed.',
+    status: 503,
+  },
+}
+
+type OtpDeliveryErrorOptions = {
+  providerStatus?: number
+  providerCode?: string
+  providerMessage?: string
+}
+
+export class OtpDeliveryError extends Error {
+  readonly status: number
+  readonly suggestion: string
+  readonly provider = 'resend'
+  readonly providerStatus?: number
+  readonly providerCode?: string
+  readonly providerMessage?: string
+
+  constructor(readonly code: OtpDeliveryErrorCode, options: OtpDeliveryErrorOptions = {}) {
+    const details = OTP_DELIVERY_ERROR_DETAILS[code]
+    super(details.message)
+    this.name = 'OtpDeliveryError'
+    this.status = details.status
+    this.suggestion = details.suggestion
+    this.providerStatus = options.providerStatus
+    this.providerCode = options.providerCode
+    this.providerMessage = options.providerMessage
+  }
+}
+
+type OtpDeliveryResponsePayload = {
+  error: string
+  code: OtpDeliveryErrorCode
+  suggestion: string
+  provider: string
+  providerStatus?: number
+  providerCode?: string
+}
+
+export function otpDeliveryErrorPayload(error: OtpDeliveryError): OtpDeliveryResponsePayload {
+  return {
+    error: error.message,
+    code: error.code,
+    suggestion: error.suggestion,
+    provider: error.provider,
+    providerStatus: error.providerStatus,
+    providerCode: error.providerCode,
+  }
+}
+
+type ResendErrorBody = {
+  name?: string
+  message?: string
+  statusCode?: number
 }
 
 export function normalizeEmail(email: unknown) {
@@ -58,6 +187,76 @@ function sentAtFromExpires(expires: Date) {
   return expires.getTime() - OTP_TTL_MS
 }
 
+function configuredSender() {
+  return process.env.OTP_EMAIL_FROM || process.env.RESEND_FROM || 'Sarathy <onboarding@resend.dev>'
+}
+
+function parseResendError(detail: string): ResendErrorBody {
+  try {
+    const parsed = JSON.parse(detail) as ResendErrorBody
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return { message: detail }
+  }
+}
+
+function classifyResendError(status: number, from: string, detail: string) {
+  const providerError = parseResendError(detail)
+  const providerCode = providerError.name
+  const providerMessage = providerError.message || detail
+  const lowerMessage = providerMessage.toLowerCase()
+  const lowerFrom = from.toLowerCase()
+  const common = { providerStatus: status, providerCode, providerMessage }
+
+  if (status === 401 || lowerMessage.includes('api key')) {
+    return new OtpDeliveryError('OTP_EMAIL_PROVIDER_AUTH_FAILED', common)
+  }
+
+  if (status === 403 && (lowerMessage.includes('1010') || lowerMessage.includes('access denied'))) {
+    return new OtpDeliveryError('OTP_EMAIL_REQUEST_BLOCKED', common)
+  }
+
+  if (
+    status === 403
+    && (lowerFrom.includes('@resend.dev') || lowerMessage.includes('resend.dev') || lowerMessage.includes('testing emails'))
+  ) {
+    return new OtpDeliveryError('OTP_FROM_DOMAIN_RESTRICTED', common)
+  }
+
+  if (
+    status === 403
+    && lowerMessage.includes('domain')
+    && (lowerMessage.includes('verify') || lowerMessage.includes('verified'))
+  ) {
+    return new OtpDeliveryError('OTP_FROM_DOMAIN_UNVERIFIED', common)
+  }
+
+  if ((status === 400 || status === 422) && (lowerMessage.includes('from') || lowerMessage.includes('sender'))) {
+    return new OtpDeliveryError('OTP_INVALID_SENDER', common)
+  }
+
+  if (
+    (status === 400 || status === 422)
+    && (lowerMessage.includes('recipient') || lowerMessage.includes('to email') || lowerMessage.includes('to field'))
+  ) {
+    return new OtpDeliveryError('OTP_INVALID_RECIPIENT', common)
+  }
+
+  if (status === 429 && (lowerMessage.includes('quota') || lowerMessage.includes('limit exceeded'))) {
+    return new OtpDeliveryError('OTP_EMAIL_QUOTA_EXCEEDED', common)
+  }
+
+  if (status === 429) {
+    return new OtpDeliveryError('OTP_EMAIL_RATE_LIMITED', common)
+  }
+
+  if (status >= 500) {
+    return new OtpDeliveryError('OTP_EMAIL_PROVIDER_UNAVAILABLE', common)
+  }
+
+  return new OtpDeliveryError('OTP_DELIVERY_FAILED', common)
+}
+
 async function sendOtpEmail(email: string, otp: string, purpose: OtpPurpose) {
   const isPasswordReset = purpose === 'password-reset'
   const subject = isPasswordReset ? 'Your Sarathy reset code' : 'Your Sarathy verification code'
@@ -75,16 +274,28 @@ async function sendOtpEmail(email: string, otp: string, purpose: OtpPurpose) {
 
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new OtpDeliveryError('OTP_EMAIL_NOT_CONFIGURED')
+    }
     console.info(`[Sarathy OTP] ${purpose} code for ${email}: ${otp}`)
     return
   }
 
-  const from = process.env.OTP_EMAIL_FROM || process.env.RESEND_FROM || 'Sarathy <onboarding@resend.dev>'
+  const from = configuredSender()
+  if (process.env.NODE_ENV === 'production' && /@resend\.dev/i.test(from)) {
+    throw new OtpDeliveryError('OTP_FROM_DOMAIN_RESTRICTED', {
+      providerStatus: 403,
+      providerCode: 'validation_error',
+      providerMessage: 'The Resend test sender is restricted to the verified account email and cannot be used for public sign-ups.',
+    })
+  }
+
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      'User-Agent': 'sarathy/0.1.0',
     },
     body: JSON.stringify({
       from,
@@ -97,8 +308,15 @@ async function sendOtpEmail(email: string, otp: string, purpose: OtpPurpose) {
 
   if (!response.ok) {
     const detail = await response.text().catch(() => '')
-    console.error('Failed to send Sarathy OTP:', detail)
-    throw new Error('Could not send verification code.')
+    const error = classifyResendError(response.status, from, detail)
+    console.error('Failed to send Sarathy OTP:', {
+      code: error.code,
+      provider: error.provider,
+      providerStatus: error.providerStatus,
+      providerCode: error.providerCode,
+      providerMessage: error.providerMessage,
+    })
+    throw error
   }
 }
 

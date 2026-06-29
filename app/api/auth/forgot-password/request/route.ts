@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { isValidEmail, issueOtp, normalizeEmail, OtpCooldownError } from '@/lib/otp'
+import {
+  isValidEmail,
+  issueOtp,
+  normalizeEmail,
+  OtpCooldownError,
+  OtpDeliveryError,
+  otpDeliveryErrorPayload,
+} from '@/lib/otp'
 
 export async function POST(req: Request) {
   try {
@@ -25,12 +32,22 @@ export async function POST(req: Request) {
   } catch (err) {
     if (err instanceof OtpCooldownError) {
       return NextResponse.json(
-        { error: err.message, cooldownSeconds: err.cooldownSeconds },
+        { error: err.message, code: 'OTP_COOLDOWN', cooldownSeconds: err.cooldownSeconds },
         { status: 429 },
       )
     }
 
+    if (err instanceof OtpDeliveryError) {
+      return NextResponse.json(otpDeliveryErrorPayload(err), { status: err.status })
+    }
+
     console.error('Password reset request failed:', err)
-    return NextResponse.json({ error: 'Could not send reset code.' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Could not send reset code.',
+        code: 'OTP_DELIVERY_FAILED',
+      },
+      { status: 500 },
+    )
   }
 }

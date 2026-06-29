@@ -4,7 +4,7 @@ import { SarathyPromo, type SarathyPromoProps } from './SarathyPromo'
 export const PROMO_FPS = 30
 export const PROMO_WIDTH = 1920
 export const PROMO_HEIGHT = 1080
-export const PROMO_DURATION_IN_FRAMES = 795
+export const PROMO_DURATION_IN_FRAMES = 1040
 
 export const RemotionRoot = () => {
   return (

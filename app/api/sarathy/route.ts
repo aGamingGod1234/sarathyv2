@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { calculateSafeToSpend, formatCurrency, getMonthEntries, groupEntriesByCategory } from '@/lib/calculations'
 import { formatDateKey, getCurrentMonthDateRange, getLocalDateKey } from '@/lib/dates'
 import { finishAiUsage, reserveAiUsage } from '@/lib/ai-usage'
+import { SARATHY_PROMPT_HISTORY_LIMIT, loadPromptChatMemory, pruneSavedChatHistory } from '@/lib/chat-history'
 import {
   lookupKnownProductPrice,
   shouldLookupProductPrice,
@@ -152,7 +153,7 @@ function buildContextBlock(context: NonNullable<Awaited<ReturnType<typeof loadMo
 
 function buildHistoryBlock(history: SarathyHistoryItem[] = []) {
   return history
-    .slice(-8)
+    .slice(-SARATHY_PROMPT_HISTORY_LIMIT)
     .map(item => `${item.role === 'assistant' ? 'Sarathy' : 'User'}: ${compactValue(item.content)}`)
     .join('\n')
 }
@@ -210,11 +211,7 @@ async function loadMoneyContext(userId: string) {
       orderBy: { entry_date: 'desc' },
       take: 30,
     }),
-    prisma.chatMessage.findMany({
-      where: { user_id: userId },
-      orderBy: { created_at: 'desc' },
-      take: 8,
-    }),
+    loadPromptChatMemory(userId),
   ])
 
   if (!profile) return null
@@ -240,7 +237,7 @@ async function loadMoneyContext(userId: string) {
     safeData,
     monthSpent,
     categories,
-    history: history.reverse(),
+    history,
   }
 }
 
@@ -271,7 +268,9 @@ function buildPrompt({
     'Product price context:',
     buildPriceBlock(price, targetCurrency, wantsLookup),
     '',
-    history.length ? `Recent conversation:\n${buildHistoryBlock(history)}` : 'Recent conversation: none',
+    history.length
+      ? `Recent conversation from current 30-minute memory window:\n${buildHistoryBlock(history)}`
+      : 'Recent conversation from current 30-minute memory window: none',
     '',
     isAnxious
       ? 'The user is anxious. Be grounding, concrete, and non-judgmental.'
@@ -431,6 +430,7 @@ export async function POST(req: NextRequest) {
               await prisma.chatMessage.create({
                 data: { user_id: userId, role: 'assistant', content: finalMessage },
               })
+              await pruneSavedChatHistory(userId, context.profile.plan_tier)
             }
             await finishAiUsage({ eventId: usageEventId, status: 'completed' })
             send({ done: true, message: finalMessage, usage: { used: quota.used, limit: quota.limit } })
@@ -455,6 +455,12 @@ export async function POST(req: NextRequest) {
 
     const raw = await generateReply({ prompt, useWebSearch })
     const assistantMessage = normalizeAssistantMessage(raw || "I'm having a moment. Try again in a sec.")
+    if (shouldPersistChat) {
+      await prisma.chatMessage.create({
+        data: { user_id: userId, role: 'assistant', content: assistantMessage },
+      })
+      await pruneSavedChatHistory(userId, context.profile.plan_tier)
+    }
     await finishAiUsage({ eventId: usageEventId, status: 'completed' })
 
     return NextResponse.json({
