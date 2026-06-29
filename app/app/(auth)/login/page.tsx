@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Chrome, Eye, EyeOff, Mail } from 'lucide-react'
@@ -9,19 +9,34 @@ import BrandLogo from '@/components/ui/BrandLogo'
 
 export default function LoginPage() {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (active && data.user) {
+        router.replace('/app/home')
+      }
+    })
+
+    return () => {
+      active = false
+    }
+  }, [router, supabase])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await supabase.auth.signInWithPassword({ email, password, rememberMe })
       if (error) throw error
       router.replace('/app/home')
     } catch (err: any) {
@@ -107,6 +122,16 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
+
+          <label className="flex w-fit items-center gap-2 text-sm font-medium text-ink-3">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={event => setRememberMe(event.target.checked)}
+              className="h-4 w-4 rounded border-line text-saffron accent-saffron"
+            />
+            Remember me for 60 days
+          </label>
 
           {error && (
             <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-danger" role="alert" aria-live="polite">

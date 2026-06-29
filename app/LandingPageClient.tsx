@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { getSession } from 'next-auth/react'
 import {
   ArrowRight,
   Brain,
@@ -18,6 +19,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Target,
+  UserRound,
   WalletCards,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -144,6 +146,21 @@ const featureList: Array<{ title: string; body: string; icon: LucideIcon }> = [
 
 const planOptions = [PLAN_DEFINITIONS.free, PLAN_DEFINITIONS.plus]
 
+export type LandingUser = {
+  name?: string | null
+  email?: string | null
+  image?: string | null
+}
+
+function toLandingUser(user: LandingUser | null | undefined): LandingUser | null {
+  if (!user) return null
+  return {
+    name: user.name || null,
+    email: user.email || null,
+    image: user.image || null,
+  }
+}
+
 function AnimatedWords({ text, className = '' }: { text: string; className?: string }) {
   return (
     <span className={className} aria-label={text}>
@@ -157,14 +174,41 @@ function AnimatedWords({ text, className = '' }: { text: string; className?: str
   )
 }
 
-function CtaLink({ className = '' }: { className?: string }) {
+function CtaLink({ className = '', isSignedIn = false }: { className?: string; isSignedIn?: boolean }) {
   return (
     <Link
-      href="/app/signup"
+      href={isSignedIn ? '/app/home' : '/app/signup'}
       className={`motion-cta inline-flex min-h-12 items-center justify-center gap-3 rounded-lg bg-saffron px-6 py-3 text-base font-semibold text-[#11131d] shadow-[0_16px_38px_rgba(249,115,22,0.32)] transition hover:bg-saffron-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-saffron ${className}`}
     >
-      Sign up now
+      {isSignedIn ? 'Open app' : 'Sign up now'}
       <ArrowRight className="h-5 w-5" aria-hidden="true" />
+    </Link>
+  )
+}
+
+function AccountLink({ user }: { user: LandingUser | null }) {
+  if (!user) {
+    return (
+      <Link href="/app/login" className="motion-nav justify-self-end text-sm font-semibold text-current transition hover:opacity-70">
+        Sign in
+      </Link>
+    )
+  }
+
+  const label = user.name ? `Open ${user.name}'s profile` : 'Open profile'
+
+  return (
+    <Link
+      href="/app/profile"
+      className="motion-nav inline-flex h-10 w-10 items-center justify-center justify-self-end overflow-hidden rounded-full border border-current/20 bg-white/70 text-current shadow-sm transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-saffron"
+      aria-label={label}
+      title={label}
+    >
+      {user.image ? (
+        <img src={user.image} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+      ) : (
+        <UserRound className="h-5 w-5" aria-hidden="true" />
+      )}
     </Link>
   )
 }
@@ -191,8 +235,39 @@ function SectionHeading({
   )
 }
 
-export default function LandingPage() {
+export default function LandingPage({ initialUser = null }: { initialUser?: LandingUser | null }) {
   const rootRef = useRef<HTMLElement>(null)
+  const [user, setUser] = useState<LandingUser | null>(initialUser)
+  const isSignedIn = Boolean(user)
+
+  useEffect(() => {
+    let active = true
+
+    const refreshSession = async () => {
+      const session = await getSession()
+      if (active) {
+        setUser(toLandingUser(session?.user))
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshSession()
+      }
+    }
+
+    void refreshSession()
+    window.addEventListener('pageshow', refreshSession)
+    window.addEventListener('focus', refreshSession)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      active = false
+      window.removeEventListener('pageshow', refreshSession)
+      window.removeEventListener('focus', refreshSession)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [])
 
   useEffect(() => {
     let media:
@@ -454,9 +529,7 @@ export default function LandingPage() {
               </Link>
             ))}
           </div>
-          <Link href="/app/login" className="motion-nav justify-self-end text-sm font-semibold text-current transition hover:opacity-70">
-            Sign in
-          </Link>
+          <AccountLink user={user} />
         </nav>
       </header>
 
@@ -495,7 +568,7 @@ export default function LandingPage() {
 
         <div className="absolute inset-x-0 bottom-8 z-10 flex justify-center px-5 md:bottom-10">
           <div className="hero-cta-button">
-            <CtaLink />
+            <CtaLink isSignedIn={isSignedIn} />
           </div>
         </div>
       </section>
@@ -622,7 +695,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <div className="pricing-cta pt-3 md:pt-5">
-                  <CtaLink className="min-h-[64px] w-full text-lg" />
+                  <CtaLink className="min-h-[64px] w-full text-lg" isSignedIn={isSignedIn} />
                 </div>
               </article>
             ))}
@@ -659,12 +732,18 @@ export default function LandingPage() {
             <div className="reveal-item">
               <h2 className="text-sm font-semibold text-white">App</h2>
               <div className="mt-4 grid gap-3 text-sm text-white/66">
-                <Link href="/app/login" className="transition hover:text-saffron">
-                  Sign in
+                <Link href={isSignedIn ? '/app/profile' : '/app/login'} className="transition hover:text-saffron">
+                  {isSignedIn ? 'Profile' : 'Sign in'}
                 </Link>
-                <Link href="/app/signup" className="transition hover:text-saffron">
-                  Sign up
-                </Link>
+                {isSignedIn ? (
+                  <Link href="/app/home" className="transition hover:text-saffron">
+                    Open app
+                  </Link>
+                ) : (
+                  <Link href="/app/signup" className="transition hover:text-saffron">
+                    Sign up
+                  </Link>
+                )}
                 <Link href="/app/pricing" className="transition hover:text-saffron">
                   App pricing
                 </Link>
@@ -672,7 +751,7 @@ export default function LandingPage() {
             </div>
 
             <div className="reveal-item md:min-w-52">
-              <CtaLink className="w-full" />
+              <CtaLink className="w-full" isSignedIn={isSignedIn} />
             </div>
           </div>
 

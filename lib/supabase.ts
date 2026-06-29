@@ -209,11 +209,20 @@ export function createClient() {
         const session = await getSession()
         return { data: { session }, error: null }
       },
-      async signInWithPassword({ email, password }: { email: string; password: string }) {
+      async signInWithPassword({
+        email,
+        password,
+        rememberMe = true,
+      }: {
+        email: string
+        password: string
+        rememberMe?: boolean
+      }) {
         const result = await signIn('credentials', {
           redirect: false,
           email,
           password,
+          rememberMe,
         })
         const message = friendlySignInMessage(result?.error)
         return {

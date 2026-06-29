@@ -1,6 +1,11 @@
 import 'next-auth'
+import 'next-auth/jwt'
 
 declare module 'next-auth' {
+  interface User {
+    rememberMe?: boolean
+  }
+
   interface Session {
     user?: {
       id: string
@@ -11,3 +16,8 @@ declare module 'next-auth' {
   }
 }
 
+declare module 'next-auth/jwt' {
+  interface JWT {
+    rememberMe?: boolean
+  }
+}
