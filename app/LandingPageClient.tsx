@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { getSession } from 'next-auth/react'
 import {
@@ -25,6 +26,11 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { PLAN_DEFINITIONS } from '@/lib/plans'
 import BrandLogo, { BrandMark } from '@/components/ui/BrandLogo'
+
+const ShaderBackdrop = dynamic(() => import('@/components/ui/ShaderBackdrop'), {
+  ssr: false,
+  loading: () => null,
+})
 
 const navItems = [
   { label: 'Problem', href: '#problem' },
@@ -380,7 +386,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
             .to('.hero-meter-fill', { scaleX: 1, duration: 0.9, ease: 'power2.out' }, '<0.08')
             .to('.hero-cta-button', { autoAlpha: 1, y: 0, duration: 0.46 }, '-=0.2')
 
-          gsap.to('.shader-gradient-bg', {
+          gsap.to('.shader-backdrop-hero', {
             yPercent: 7,
             scale: 1.08,
             ease: 'none',
@@ -425,20 +431,20 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
             if (words.length) {
               timeline.fromTo(
                 words,
-                { autoAlpha: 0, y: 18 },
-                { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.022 },
+                { y: 18 },
+                { y: 0, duration: 0.5, stagger: 0.022 },
               )
             }
 
             if (copy.length) {
-              timeline.fromTo(copy, { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.42 }, '-=0.2')
+              timeline.fromTo(copy, { y: 14 }, { y: 0, duration: 0.42 }, '-=0.2')
             }
 
             if (items.length) {
               timeline.fromTo(
                 items,
-                { autoAlpha: 0, y: 26 },
-                { autoAlpha: 1, y: 0, duration: 0.52, stagger: 0.075 },
+                { y: 26 },
+                { y: 0, duration: 0.52, stagger: 0.075 },
                 '-=0.12',
               )
             }
@@ -446,8 +452,8 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
             if (icons.length) {
               timeline.fromTo(
                 icons,
-                { autoAlpha: 0, scale: 0.86 },
-                { autoAlpha: 1, scale: 1, duration: 0.34, stagger: 0.045 },
+                { scale: 0.86 },
+                { scale: 1, duration: 0.34, stagger: 0.045 },
                 '<0.05',
               )
             }
@@ -455,8 +461,8 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
             if (chips.length) {
               timeline.fromTo(
                 chips,
-                { autoAlpha: 0, y: 8 },
-                { autoAlpha: 1, y: 0, duration: 0.32, stagger: 0.035 },
+                { y: 8 },
+                { y: 0, duration: 0.32, stagger: 0.035 },
                 '<0.05',
               )
             }
@@ -535,7 +541,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
 
       <section className="landing-hero relative isolate min-h-screen overflow-hidden bg-[#080b12] text-white">
         <div className="absolute inset-0" aria-hidden="true">
-          <div className="shader-gradient-bg" />
+          <ShaderBackdrop variant="hero" />
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:88px_88px] opacity-[0.16]" />
           <div className="absolute inset-x-6 top-28 space-y-5 opacity-60 md:inset-x-16 md:top-32">
             {Array.from({ length: 15 }).map((_, index) => (
@@ -573,8 +579,9 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
         </div>
       </section>
 
-      <section id="problem" className="scroll-section scroll-mt-32 border-y border-line bg-[#fbfaf8]">
-        <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
+      <section id="problem" className="scroll-section relative isolate scroll-mt-32 overflow-hidden border-y border-line bg-[#fbfaf8]">
+        <ShaderBackdrop variant="problem" />
+        <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
           <SectionHeading
             eyebrow="The problem"
             title="Student money gets messy fast"
@@ -582,7 +589,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
           />
           <div className="mt-10 grid gap-5 md:grid-cols-3">
             {financeProblems.map(({ title, body, icon: Icon }) => (
-              <article key={title} className="reveal-item rounded-lg border border-line bg-white p-6">
+              <article key={title} className="reveal-item rounded-lg border border-white/70 bg-white/85 p-6 shadow-[0_18px_58px_rgba(30,10,46,0.08)] backdrop-blur-md">
                 <Icon className="motion-icon mb-5 h-7 w-7 text-saffron" />
                 <h3 className="text-xl font-semibold text-plum">{title}</h3>
                 <p className="mt-3 text-sm leading-6 text-ink-3">{body}</p>
@@ -592,14 +599,15 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
         </div>
       </section>
 
-      <section id="how-it-helps" className="scroll-section scroll-mt-32 bg-mint/45">
-        <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
+      <section id="how-it-helps" className="scroll-section relative isolate scroll-mt-32 overflow-hidden bg-mint/45">
+        <ShaderBackdrop variant="loop" />
+        <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
           <SectionHeading
             eyebrow="How Sarathy helps"
             title="A short loop for daily clarity"
             body="Bring money in, protect essentials, then ask for the answer."
           />
-          <div className="mt-10 overflow-hidden rounded-lg border border-line bg-white">
+          <div className="mt-10 overflow-hidden rounded-lg border border-white/70 bg-white/85 shadow-[0_24px_70px_rgba(16,185,129,0.12)] backdrop-blur-md">
             {helpFlows.map(({ problem, solution, feature, icon: Icon }, index) => (
               <div key={feature} className="reveal-item grid gap-5 border-b border-line p-6 last:border-b-0 md:grid-cols-[220px_1fr_190px] md:items-center">
                 <div className="flex items-center gap-3">
@@ -612,7 +620,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
                   <p className="font-semibold text-plum">{problem}</p>
                   <p className="mt-2 text-sm leading-6 text-ink-3">{solution}</p>
                 </div>
-                <div className="motion-chip rounded-lg border border-line bg-[#fbfaf8] px-4 py-3 text-sm font-semibold text-saffron">
+                <div className="motion-chip rounded-lg border border-saffron/15 bg-white/70 px-4 py-3 text-sm font-semibold text-saffron">
                   {feature}
                 </div>
               </div>
@@ -621,15 +629,16 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
         </div>
       </section>
 
-      <section id="features" className="scroll-section scroll-mt-32 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-[0.95fr_1.05fr]">
+      <section id="features" className="scroll-section relative isolate scroll-mt-32 overflow-hidden bg-white">
+        <ShaderBackdrop variant="features" />
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-10 px-5 py-16 md:px-8 md:py-20 lg:grid-cols-[0.95fr_1.05fr]">
           <div>
             <SectionHeading
               eyebrow="Personalization"
               title="Personal inputs, practical answers"
               body="The app keeps the context that changes each recommendation."
             />
-            <div className="mt-8 overflow-hidden rounded-lg border border-line bg-white">
+            <div className="mt-8 overflow-hidden rounded-lg border border-white/70 bg-white/90 shadow-[0_20px_64px_rgba(30,10,46,0.08)] backdrop-blur-md">
               {personalizationInputs.map(({ title, body, status, icon: Icon }) => (
                 <div key={title} className="reveal-item grid gap-4 border-b border-line p-4 last:border-b-0 sm:grid-cols-[44px_1fr_auto] sm:items-center md:p-5">
                   <div className="motion-icon flex h-11 w-11 items-center justify-center rounded-lg bg-saffron-soft text-saffron">
@@ -651,7 +660,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
             <h3 className="reveal-item text-2xl font-semibold text-plum">Core app features</h3>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {featureList.map(({ title, body, icon: Icon }) => (
-                <article key={title} className="reveal-item rounded-lg border border-line bg-[#fbfaf8] p-5">
+                <article key={title} className="reveal-item rounded-lg border border-white/70 bg-white/85 p-5 shadow-[0_16px_50px_rgba(30,10,46,0.07)] backdrop-blur-md">
                   <Icon className="motion-icon mb-4 h-6 w-6 text-plum" />
                   <h4 className="font-semibold text-plum">{title}</h4>
                   <p className="mt-2 text-sm leading-6 text-ink-3">{body}</p>
@@ -662,8 +671,9 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
         </div>
       </section>
 
-      <section id="pricing" className="scroll-section scroll-mt-32 border-t border-line bg-[#fbfaf8]">
-        <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
+      <section id="pricing" className="scroll-section relative isolate scroll-mt-32 overflow-hidden border-t border-line bg-[#fbfaf8]">
+        <ShaderBackdrop variant="pricing" />
+        <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
           <SectionHeading
             align="center"
             eyebrow="Pricing"
@@ -673,7 +683,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
 
           <div className="mt-10 grid gap-8 md:grid-cols-2">
             {planOptions.map(plan => (
-              <article key={plan.tier} className="pricing-card reveal-item flex min-h-[560px] flex-col rounded-lg border border-line bg-white px-7 py-8 md:px-10 md:py-10">
+              <article key={plan.tier} className="pricing-card reveal-item flex min-h-[560px] flex-col rounded-lg border border-white/75 bg-white/90 px-7 py-8 shadow-[0_24px_76px_rgba(249,115,22,0.1)] backdrop-blur-md md:px-10 md:py-10">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="text-3xl font-semibold text-plum md:text-4xl">{plan.name}</h3>
@@ -703,8 +713,9 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
         </div>
       </section>
 
-      <footer className="scroll-section bg-[#080b12] text-white">
-        <div className="mx-auto max-w-7xl px-5 py-12 md:px-8 md:py-16">
+      <footer className="scroll-section relative isolate overflow-hidden bg-[#080b12] text-white">
+        <ShaderBackdrop variant="footer" />
+        <div className="relative z-10 mx-auto max-w-7xl px-5 py-12 md:px-8 md:py-16">
           <div className="grid gap-10 md:grid-cols-[1.2fr_0.8fr_0.8fr_auto] md:items-start">
             <div className="reveal-item max-w-sm">
               <span className="inline-flex items-center gap-3">

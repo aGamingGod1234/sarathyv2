@@ -126,39 +126,91 @@
     z-index: 1;
   }
 
-  .shader-gradient-bg {
+  .shader-backdrop {
+    --shader-opacity: 0.38;
+    --shader-fallback: linear-gradient(135deg, rgba(255, 243, 232, 0.92), rgba(233, 248, 240, 0.78));
+    --shader-scrim: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.88));
     position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background: var(--shader-fallback);
+  }
+
+  .shader-backdrop-canvas {
+    position: absolute !important;
+    inset: -12% !important;
+    width: 124% !important;
+    height: 124% !important;
+    opacity: var(--shader-opacity);
+    filter: saturate(1.12) contrast(1.04);
+    transform: translate3d(0, 0, 0) scale(1.02);
+  }
+
+  .shader-backdrop-scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--shader-scrim);
+  }
+
+  .shader-backdrop-hero {
+    --shader-opacity: 0.84;
+    --shader-fallback:
+      linear-gradient(118deg, transparent 0 30%, rgba(249, 115, 22, 0.66) 48%, rgba(233, 248, 240, 0.3) 65%, transparent 82%),
+      linear-gradient(160deg, rgba(30, 10, 46, 0.98) 0%, rgba(8, 11, 18, 0.98) 46%, rgba(8, 11, 18, 0.98) 100%);
+    --shader-scrim:
+      radial-gradient(ellipse at 48% 44%, transparent 0%, rgba(8, 11, 18, 0.16) 42%, rgba(8, 11, 18, 0.9) 100%),
+      linear-gradient(90deg, rgba(8, 11, 18, 0.88), rgba(8, 11, 18, 0.28) 32%, rgba(8, 11, 18, 0.78));
     inset: -12%;
-    background:
-      linear-gradient(118deg, transparent 0 28%, rgba(249, 115, 22, 0.08) 35%, rgba(249, 115, 22, 0.64) 47%, rgba(255, 196, 125, 0.38) 54%, transparent 66%),
-      linear-gradient(64deg, transparent 0 38%, rgba(16, 185, 129, 0.12) 49%, rgba(16, 185, 129, 0.44) 62%, rgba(233, 248, 240, 0.22) 70%, transparent 82%),
-      linear-gradient(160deg, rgba(30, 10, 46, 0.98) 0%, rgba(8, 11, 18, 0.98) 41%, rgba(7, 35, 35, 0.96) 68%, rgba(8, 11, 18, 0.98) 100%);
-    background-size: 118% 118%, 112% 112%, 100% 100%;
-    background-position: 43% 54%, 54% 47%, center;
-    filter: saturate(1.16) contrast(1.08);
-    transform: translate3d(0, 0, 0) scale(1.04);
     animation: shaderGradientDrift 16s ease-in-out infinite alternate;
   }
 
-  .shader-gradient-bg::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      repeating-linear-gradient(118deg, transparent 0 34px, rgba(255, 255, 255, 0.07) 35px 36px, transparent 37px 74px),
-      linear-gradient(118deg, transparent 0 37%, rgba(255, 255, 255, 0.18) 47%, transparent 58%);
-    mask-image: linear-gradient(90deg, transparent, #000 16%, #000 76%, transparent);
-    mix-blend-mode: soft-light;
-    opacity: 0.46;
+  .shader-backdrop-problem {
+    --shader-opacity: 0.3;
+    --shader-fallback:
+      radial-gradient(circle at 18% 24%, rgba(249, 115, 22, 0.22), transparent 36%),
+      linear-gradient(135deg, #fff8f1 0%, #f6fbf8 54%, #fff3e8 100%);
+    --shader-scrim:
+      linear-gradient(90deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.68)),
+      radial-gradient(circle at 72% 18%, rgba(255, 255, 255, 0.78), transparent 44%);
   }
 
-  .shader-gradient-bg::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(180deg, rgba(8, 11, 18, 0.2), rgba(8, 11, 18, 0.1) 36%, rgba(8, 11, 18, 0.78)),
-      linear-gradient(90deg, rgba(8, 11, 18, 0.78), rgba(8, 11, 18, 0.18) 26%, transparent 50%, rgba(8, 11, 18, 0.7));
+  .shader-backdrop-loop {
+    --shader-opacity: 0.34;
+    --shader-fallback:
+      radial-gradient(circle at 78% 20%, rgba(16, 185, 129, 0.18), transparent 36%),
+      linear-gradient(135deg, #e9f8f0 0%, #fff3e8 52%, #f9faf7 100%);
+    --shader-scrim: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.86));
+  }
+
+  .shader-backdrop-features {
+    --shader-opacity: 0.28;
+    --shader-fallback:
+      radial-gradient(circle at 12% 20%, rgba(249, 115, 22, 0.16), transparent 34%),
+      radial-gradient(circle at 88% 12%, rgba(30, 10, 46, 0.12), transparent 40%),
+      linear-gradient(145deg, #ffffff 0%, #f7fbf8 58%, #fff4ea 100%);
+    --shader-scrim: linear-gradient(110deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.72));
+  }
+
+  .shader-backdrop-pricing {
+    --shader-opacity: 0.32;
+    --shader-fallback:
+      radial-gradient(circle at 20% 12%, rgba(249, 115, 22, 0.2), transparent 40%),
+      radial-gradient(circle at 92% 26%, rgba(45, 17, 71, 0.14), transparent 38%),
+      linear-gradient(135deg, #fff8f1 0%, #fdfaf6 50%, #fff3e8 100%);
+    --shader-scrim: linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.84));
+  }
+
+  .shader-backdrop-footer {
+    --shader-opacity: 0.62;
+    --shader-fallback:
+      radial-gradient(circle at 24% 20%, rgba(249, 115, 22, 0.34), transparent 42%),
+      radial-gradient(circle at 86% 18%, rgba(233, 248, 240, 0.16), transparent 38%),
+      linear-gradient(135deg, #080b12 0%, #1e0a2e 48%, #080b12 100%);
+    --shader-scrim:
+      linear-gradient(180deg, rgba(8, 11, 18, 0.18), rgba(8, 11, 18, 0.78)),
+      linear-gradient(90deg, rgba(8, 11, 18, 0.72), rgba(8, 11, 18, 0.34));
   }
 
   .safe-number {
@@ -484,8 +536,17 @@
     transition: none;
   }
 
-  .shader-gradient-bg {
+  .shader-backdrop-hero {
     animation: none;
+  }
+
+  .shader-backdrop-canvas {
+    opacity: 0.26;
+  }
+
+  .shader-backdrop-hero .shader-backdrop-canvas,
+  .shader-backdrop-footer .shader-backdrop-canvas {
+    opacity: 0.42;
   }
 }
 
