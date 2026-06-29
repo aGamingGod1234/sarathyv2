@@ -167,7 +167,7 @@ model AiDailyUsage {
   date_key              String
   message_count         Int      @default(0)
   product_lookup_count  Int      @default(0)
-  limit                 Int      @default(30)
+  limit                 Int      @default(20)
   created_at            DateTime @default(now())
   updated_at            DateTime @updatedAt
 

@@ -32,6 +32,7 @@ export const PLAN_DEFINITIONS: Record<PlanTier, PlanDefinition> = {
       'Safe-to-spend check',
       'Basic transaction logging',
       'Starter goals and money story',
+      '20 Sarathy messages per day',
       'Latest 5 Sarathy chat turns saved',
     ],
   },
@@ -44,6 +45,7 @@ export const PLAN_DEFINITIONS: Record<PlanTier, PlanDefinition> = {
     description: 'Deeper memory, stronger planning, and a more personal Sarathy that keeps learning with you.',
     cta: 'Prepare Plus upgrade',
     highlights: [
+      'Unlimited Sarathy AI messages',
       'Unlimited imports and receipt scans',
       'Unlimited saved Sarathy chat history',
       'Advanced future scenarios',
@@ -54,6 +56,13 @@ export const PLAN_DEFINITIONS: Record<PlanTier, PlanDefinition> = {
 }
 
 export const PLAN_FEATURES: PlanFeature[] = [
+  {
+    id: 'ai-messages',
+    title: 'Sarathy AI messages',
+    description: 'Ask follow-up questions when you need practical money guidance.',
+    free: '20 messages per day',
+    plus: 'Unlimited messages',
+  },
   {
     id: 'ai-memory',
     title: 'Sarathy context and memory',

@@ -36,6 +36,7 @@ const navItems = [
   { label: 'Problem', href: '#problem' },
   { label: 'How it helps', href: '#how-it-helps' },
   { label: 'Features', href: '#features' },
+  { label: 'Tools', href: '#tools' },
   { label: 'Pricing', href: '#pricing' },
 ]
 
@@ -150,6 +151,45 @@ const featureList: Array<{ title: string; body: string; icon: LucideIcon }> = [
   },
 ]
 
+const moneyTools: Array<{ title: string; body: string; tier: 'Starter' | 'Plus'; icon: LucideIcon }> = [
+  {
+    title: 'Money check',
+    body: 'Ask if a purchase fits today before it changes the plan.',
+    tier: 'Starter',
+    icon: ShieldCheck,
+  },
+  {
+    title: 'Import transactions',
+    body: 'Bring statements or receipts into the app without rebuilding your budget by hand.',
+    tier: 'Starter',
+    icon: Import,
+  },
+  {
+    title: 'Fixed costs',
+    body: 'Keep rent, transport, bills, and subscriptions protected before daily spending.',
+    tier: 'Starter',
+    icon: FileText,
+  },
+  {
+    title: 'My data',
+    body: 'See the profile, logs, and context Sarathy uses for answers.',
+    tier: 'Starter',
+    icon: WalletCards,
+  },
+  {
+    title: 'Future you',
+    body: 'Test how today changes the next few months before committing.',
+    tier: 'Plus',
+    icon: CalendarClock,
+  },
+  {
+    title: 'Money psychology',
+    body: 'Spot patterns behind overspending, avoidance, and running out early.',
+    tier: 'Plus',
+    icon: Brain,
+  },
+]
+
 const planOptions = [PLAN_DEFINITIONS.free, PLAN_DEFINITIONS.plus]
 
 export type LandingUser = {
@@ -201,11 +241,11 @@ function AccountLink({ user }: { user: LandingUser | null }) {
     )
   }
 
-  const label = user.name ? `Open ${user.name}'s profile` : 'Open profile'
+  const label = user.name ? `Open ${user.name}'s app home` : 'Open app home'
 
   return (
     <Link
-      href="/app/profile"
+      href="/app/home"
       className="motion-nav inline-flex h-10 w-10 items-center justify-center justify-self-end overflow-hidden rounded-full border border-current/20 bg-white/70 text-current shadow-sm transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-saffron"
       aria-label={label}
       title={label}
@@ -386,17 +426,20 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
             .to('.hero-meter-fill', { scaleX: 1, duration: 0.9, ease: 'power2.out' }, '<0.08')
             .to('.hero-cta-button', { autoAlpha: 1, y: 0, duration: 0.46 }, '-=0.2')
 
-          gsap.to('.shader-backdrop-hero', {
-            yPercent: 7,
-            scale: 1.08,
-            ease: 'none',
-            scrollTrigger: {
-              trigger: '.landing-hero',
-              start: 'top top',
-              end: 'bottom top',
-              scrub: true,
-            },
-          })
+          const heroBackdrop = root?.querySelector('.shader-backdrop-hero')
+          if (heroBackdrop) {
+            gsap.to(heroBackdrop, {
+              yPercent: 7,
+              scale: 1.08,
+              ease: 'none',
+              scrollTrigger: {
+                trigger: '.landing-hero',
+                start: 'top top',
+                end: 'bottom top',
+                scrub: true,
+              },
+            })
+          }
 
           gsap.to('.hero-copy', {
             yPercent: -10,
@@ -671,6 +714,38 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
         </div>
       </section>
 
+      <section id="tools" className="scroll-section relative isolate scroll-mt-32 overflow-hidden border-y border-line bg-[#f8f4ef]">
+        <ShaderBackdrop variant="tools" />
+        <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
+          <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
+            <SectionHeading
+              eyebrow="Money tools"
+              title="The app opens with tools, not clutter"
+              body="Starter handles the daily loop first. Plus adds deeper planning when your month needs more context."
+            />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {moneyTools.map(({ title, body, tier, icon: Icon }) => (
+                <article key={title} className="reveal-item rounded-lg border border-white/70 bg-white/85 p-5 shadow-[0_16px_50px_rgba(30,10,46,0.07)] backdrop-blur-md">
+                  <div className="mb-5 flex items-start justify-between gap-4">
+                    <div className="motion-icon flex h-11 w-11 items-center justify-center rounded-lg bg-saffron-soft text-saffron">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <span className={`motion-chip rounded-full px-3 py-1 text-xs font-semibold ${
+                      tier === 'Plus' ? 'bg-saffron-soft text-saffron' : 'bg-mint text-[#0f6a4d]'
+                    }`}>
+                      {tier}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-plum">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-ink-3">{body}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="pricing" className="scroll-section relative isolate scroll-mt-32 overflow-hidden border-t border-line bg-[#fbfaf8]">
         <ShaderBackdrop variant="pricing" />
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
@@ -713,7 +788,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
         </div>
       </section>
 
-      <footer className="scroll-section relative isolate overflow-hidden bg-[#080b12] text-white">
+      <footer className="landing-footer scroll-section relative isolate overflow-hidden bg-[#080b12] text-white">
         <ShaderBackdrop variant="footer" />
         <div className="relative z-10 mx-auto max-w-7xl px-5 py-12 md:px-8 md:py-16">
           <div className="grid gap-10 md:grid-cols-[1.2fr_0.8fr_0.8fr_auto] md:items-start">
@@ -724,14 +799,14 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
                 </span>
                 <span className="font-brand text-4xl font-semibold text-white">Sarathy</span>
               </span>
-              <p className="mt-4 text-sm leading-6 text-white/68">
+              <p className="mt-4 text-sm leading-6 text-white/82">
                 Personalized money clarity for university students in Singapore.
               </p>
             </div>
 
             <div className="reveal-item">
               <h2 className="text-sm font-semibold text-white">Explore</h2>
-              <div className="mt-4 grid gap-3 text-sm text-white/66">
+              <div className="mt-4 grid gap-3 text-sm text-white/78">
                 {navItems.map(item => (
                   <Link key={item.href} href={item.href} className="transition hover:text-saffron">
                     {item.label}
@@ -742,7 +817,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
 
             <div className="reveal-item">
               <h2 className="text-sm font-semibold text-white">App</h2>
-              <div className="mt-4 grid gap-3 text-sm text-white/66">
+              <div className="mt-4 grid gap-3 text-sm text-white/78">
                 <Link href={isSignedIn ? '/app/profile' : '/app/login'} className="transition hover:text-saffron">
                   {isSignedIn ? 'Profile' : 'Sign in'}
                 </Link>
@@ -766,7 +841,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
             </div>
           </div>
 
-          <div className="reveal-item mt-12 flex flex-col gap-3 border-t border-white/12 pt-6 text-xs text-white/46 md:flex-row md:items-center md:justify-between">
+          <div className="reveal-item mt-12 flex flex-col gap-3 border-t border-white/18 pt-6 text-xs text-white/68 md:flex-row md:items-center md:justify-between">
             <p>© 2026 Sarathy. All rights reserved.</p>
             <p>Built for cleaner student money decisions.</p>
           </div>

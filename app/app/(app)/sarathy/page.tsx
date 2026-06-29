@@ -1,7 +1,7 @@
 'use client'
 import { Fragment, useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, SendHorizontal, Sparkles } from 'lucide-react'
+import { AlertCircle, SendHorizontal, Sparkles, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { Profile, BudgetEntry, FixedSpending, ChatMessage } from '@/types'
 import { calculateSafeToSpend, formatCurrency, getMonthEntries, groupEntriesByCategory } from '@/lib/calculations'
@@ -15,6 +15,30 @@ import { getCurrentMonthDateRange } from '@/lib/dates'
 import TabBar from '@/components/ui/TabBar'
 
 const FALLBACK_CHIPS = ['Can I afford a purchase today?', 'Check a product price in SGD', 'What changed my safe-to-spend?', 'Help me decide before I buy']
+
+type ChatUsage = {
+  used: number
+  limit: number | null
+  remaining: number | null
+  unlimited: boolean
+}
+
+function readChatUsage(value: unknown): ChatUsage | null {
+  if (!value || typeof value !== 'object') return null
+  const usage = value as Partial<ChatUsage>
+  const used = Number(usage.used)
+  const limit = usage.limit === null ? null : Number(usage.limit)
+  const remaining = usage.remaining === null ? null : Number(usage.remaining)
+
+  if (!Number.isFinite(used)) return null
+
+  return {
+    used,
+    limit: limit !== null && Number.isFinite(limit) ? limit : null,
+    remaining: remaining !== null && Number.isFinite(remaining) ? Math.max(0, remaining) : null,
+    unlimited: Boolean(usage.unlimited),
+  }
+}
 
 function isSafeHref(href: string) {
   if (href.startsWith('/')) return true
@@ -106,6 +130,8 @@ export default function SarathyPage() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [isAnxious, setIsAnxious] = useState(false)
+  const [chatUsage, setChatUsage] = useState<ChatUsage | null>(null)
+  const [quotaNoticeDismissed, setQuotaNoticeDismissed] = useState(false)
   const [todaySignal, setTodaySignal] = useState<{
     safeToSpend: number
     todaySpent: number
@@ -125,10 +151,11 @@ export default function SarathyPage() {
         if (!res.ok) {
           return {
             data: [],
+            usage: null,
             error: { message: payload?.message || 'Could not load Sarathy chat history.' },
           }
         }
-        return { data: payload?.messages || [], error: null }
+        return { data: payload?.messages || [], usage: payload?.usage || null, error: null }
       })
 
       const [profileRes, historyRes, entriesRes, fixedRes] = await Promise.all([
@@ -157,6 +184,7 @@ export default function SarathyPage() {
       }
 
       const existingMessages = (historyRes.data || []) as ChatMessage[]
+      setChatUsage(readChatUsage(historyRes.usage))
 
       // If no messages, generate an opening message
       if (existingMessages.length === 0 && profileRes.data) {
@@ -241,6 +269,12 @@ export default function SarathyPage() {
 
       if (!response.ok || !response.body || !response.headers.get('content-type')?.includes('text/event-stream')) {
         const data = await response.json().catch(() => ({}))
+        const usage = readChatUsage(data?.usage)
+        if (response.status === 429 && usage) {
+          setChatUsage(usage)
+          setQuotaNoticeDismissed(false)
+          return
+        }
         throw new Error(data.message || 'Sarathy could not answer right now.')
       }
 
@@ -290,6 +324,10 @@ export default function SarathyPage() {
               setMessages(prev => prev.map(msg =>
                 msg.id === assistantId ? { ...msg, content: event.message } : msg
               ))
+            }
+            const usage = readChatUsage(event.usage)
+            if (usage) {
+              setChatUsage(usage)
             }
           } catch {
             // Ignore malformed stream metadata.
@@ -343,6 +381,14 @@ export default function SarathyPage() {
         todaySignal.status === 'danger' ? 'What should I pause today?' : 'Help me decide before I buy',
       ]
     : quickChips
+  const freeMessagesLeft = !chatUsage?.unlimited && chatUsage?.remaining !== null && chatUsage?.remaining !== undefined
+    ? chatUsage.remaining
+    : null
+  const showQuotaNotice = profile?.plan_tier !== 'plus'
+    && !quotaNoticeDismissed
+    && freeMessagesLeft !== null
+    && freeMessagesLeft <= 5
+  const messageLabel = freeMessagesLeft === 1 ? 'message' : 'messages'
 
   return (
     <div className="min-h-dvh bg-cream flex flex-col md:pl-28">
@@ -433,6 +479,28 @@ export default function SarathyPage() {
 
       {/* Input area */}
       <div className="fixed bottom-16 left-0 right-0 bg-cream border-t border-cream-3 px-4 py-3 pb-safe md:bottom-6 md:left-32 md:right-8 md:mx-auto md:max-w-5xl md:rounded-2xl md:border">
+        {showQuotaNotice && (
+          <div className="mb-3 flex items-center gap-3 rounded-2xl border border-saffron/25 bg-white px-3 py-2.5 shadow-[0_14px_34px_rgba(30,10,46,0.08)]">
+            <p className="min-w-0 flex-1 text-xs font-medium leading-relaxed text-ink">
+              You have {freeMessagesLeft} {messageLabel} left on your free plan. Resets tomorrow.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push('/app/profile/plus')}
+              className="flex-shrink-0 rounded-full bg-saffron px-3 py-1.5 text-xs font-semibold text-white"
+            >
+              Upgrade
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuotaNoticeDismissed(true)}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-ink-3 hover:bg-cream"
+              aria-label="Dismiss free plan message notice"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         {/* Quick chips */}
         <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-hide">
           {suggestedChips.map(chip => (

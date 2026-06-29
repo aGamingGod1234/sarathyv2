@@ -370,7 +370,13 @@ export async function POST(req: NextRequest) {
     if (!quota.allowed) {
       return NextResponse.json(
         {
-          message: `You have used today's ${quota.limit} Sarathy AI messages. Try again tomorrow or move to Plus for a higher daily limit.`,
+          message: `You have used today's ${quota.limit || 0} Sarathy AI messages. Resets tomorrow, or move to Plus for unlimited messages.`,
+          usage: {
+            used: quota.used,
+            limit: quota.limit,
+            remaining: quota.remaining,
+            unlimited: quota.unlimited,
+          },
         },
         { status: 429 },
       )
@@ -433,7 +439,16 @@ export async function POST(req: NextRequest) {
               await pruneSavedChatHistory(userId, context.profile.plan_tier)
             }
             await finishAiUsage({ eventId: usageEventId, status: 'completed' })
-            send({ done: true, message: finalMessage, usage: { used: quota.used, limit: quota.limit } })
+            send({
+              done: true,
+              message: finalMessage,
+              usage: {
+                used: quota.used,
+                limit: quota.limit,
+                remaining: quota.remaining,
+                unlimited: quota.unlimited,
+              },
+            })
           } catch (err) {
             console.error('Sarathy stream failed:', err)
             await finishAiUsage({ eventId: usageEventId, status: 'failed' })
@@ -465,7 +480,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       message: assistantMessage,
-      usage: { used: quota.used, limit: quota.limit },
+      usage: {
+        used: quota.used,
+        limit: quota.limit,
+        remaining: quota.remaining,
+        unlimited: quota.unlimited,
+      },
     })
   } catch (err) {
     console.error('Sarathy route failed:', err)

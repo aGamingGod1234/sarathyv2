@@ -5,7 +5,7 @@ import { ShaderGradient, ShaderGradientCanvas } from '@shadergradient/react'
 
 type ShaderGradientProps = ComponentProps<typeof ShaderGradient>
 
-export type ShaderBackdropVariant = 'hero' | 'problem' | 'loop' | 'features' | 'pricing' | 'footer'
+export type ShaderBackdropVariant = 'hero' | 'problem' | 'loop' | 'features' | 'tools' | 'pricing' | 'footer'
 
 const baseGradient: ShaderGradientProps = {
   control: 'props',
@@ -106,6 +106,23 @@ const gradients: Record<ShaderBackdropVariant, ShaderGradientProps> = {
     uSpeed: 0.12,
     uStrength: 0.8,
   },
+  tools: {
+    ...baseGradient,
+    type: 'waterPlane',
+    brightness: 1.08,
+    color1: '#F97316',
+    color2: '#E9F8F0',
+    color3: '#2D1147',
+    positionX: 0,
+    positionY: 0.9,
+    positionZ: 0,
+    rotationX: 0,
+    rotationY: 0,
+    rotationZ: 155,
+    uDensity: 1.65,
+    uSpeed: 0.15,
+    uStrength: 2.8,
+  },
   pricing: {
     ...baseGradient,
     type: 'waterPlane',
@@ -126,10 +143,10 @@ const gradients: Record<ShaderBackdropVariant, ShaderGradientProps> = {
   footer: {
     ...baseGradient,
     type: 'plane',
-    brightness: 1,
+    brightness: 0.82,
     color1: '#1E0A2E',
     color2: '#F97316',
-    color3: '#E9F8F0',
+    color3: '#0F6A4D',
     grain: 'on',
     positionX: -0.5,
     positionY: 0.1,

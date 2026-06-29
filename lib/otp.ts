@@ -132,6 +132,12 @@ type OtpDeliveryResponsePayload = {
   retryable: boolean
 }
 
+const RETRYABLE_DELIVERY_ERRORS = new Set<OtpDeliveryErrorCode>([
+  'OTP_EMAIL_RATE_LIMITED',
+  'OTP_EMAIL_PROVIDER_UNAVAILABLE',
+  'OTP_DELIVERY_FAILED',
+])
+
 function publicDeliveryMessage(code: OtpDeliveryErrorCode) {
   if (code === 'OTP_INVALID_RECIPIENT') {
     return 'Could not send a code to that email address. Check the email and try again.'
@@ -156,7 +162,7 @@ export function otpDeliveryErrorPayload(error: OtpDeliveryError): OtpDeliveryRes
   return {
     error: publicDeliveryMessage(error.code),
     code: error.code,
-    retryable: error.status !== 400,
+    retryable: RETRYABLE_DELIVERY_ERRORS.has(error.code),
   }
 }
 
@@ -206,7 +212,7 @@ function sentAtFromExpires(expires: Date) {
 }
 
 function configuredSender() {
-  return process.env.OTP_EMAIL_FROM || process.env.RESEND_FROM || 'Sarathy <onboarding@resend.dev>'
+  return (process.env.OTP_EMAIL_FROM || process.env.RESEND_FROM || '').trim()
 }
 
 function parseResendError(detail: string): ResendErrorBody {
@@ -300,7 +306,11 @@ async function sendOtpEmail(email: string, otp: string, purpose: OtpPurpose) {
   }
 
   const from = configuredSender()
-  if (process.env.NODE_ENV === 'production' && /@resend\.dev/i.test(from)) {
+  if (!from) {
+    throw new OtpDeliveryError('OTP_EMAIL_NOT_CONFIGURED')
+  }
+
+  if (/@resend\.dev/i.test(from)) {
     throw new OtpDeliveryError('OTP_FROM_DOMAIN_RESTRICTED', {
       providerStatus: 403,
       providerCode: 'validation_error',

@@ -8,6 +8,7 @@ import {
 } from '@/lib/chat-history'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { getAiUsageStatus } from '@/lib/ai-usage'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,9 +31,11 @@ export async function GET() {
 
     await pruneSavedChatHistory(userId, profile.plan_tier)
     const messages = await loadSavedChatHistory(userId, profile.plan_tier)
+    const usage = await getAiUsageStatus({ userId, planTier: profile.plan_tier })
 
     return NextResponse.json({
       messages,
+      usage,
       retention: {
         memoryWindowMinutes: SARATHY_MEMORY_WINDOW_MINUTES,
         savedChatTurns: profile.plan_tier === 'plus' ? null : FREE_SAVED_CHAT_TURN_LIMIT,

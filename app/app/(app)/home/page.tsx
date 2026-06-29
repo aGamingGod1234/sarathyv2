@@ -116,6 +116,12 @@ const secondaryActions: Array<{ key: PersonalActionKey; href: string; label: str
   { key: 'mydata', href: '/app/mydata', label: 'My data', icon: BarChart3, tier: 'free' },
 ]
 
+const toolSuiteActions = [
+  ...primaryActions,
+  ...secondaryActions.filter(action => action.tier === 'free'),
+  ...secondaryActions.filter(action => action.tier === 'plus').slice(0, 2),
+]
+
 function CategoryIcon({ category }: { category: string }) {
   const Icon = categoryIcons[category] || MoreHorizontal
   return <Icon className="h-4 w-4" />
@@ -1046,7 +1052,7 @@ export default function HomePage() {
             <Link href="/app/story" className="text-xs font-semibold text-saffron">View all</Link>
           </div>
           <div className="grid grid-cols-1 gap-2">
-            {secondaryActions.map(action => {
+            {toolSuiteActions.map(action => {
               const Icon = action.icon
               const locked = action.tier === 'plus' && !hasPlus
 
