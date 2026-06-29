@@ -54,6 +54,8 @@ export async function POST(req: Request) {
       user_types: [],
     }
 
+    let createdUserId: string | null = null
+
     const user = existing
       ? await prisma.user.update({
           where: { id: existing.id },
@@ -81,7 +83,16 @@ export async function POST(req: Request) {
           select: { id: true, email: true, name: true },
         })
 
-    const otp = await issueOtp({ email, purpose: 'email-verification' })
+    if (!existing) createdUserId = user.id
+
+    const otp = await issueOtp({ email, purpose: 'email-verification' }).catch(async err => {
+      if (createdUserId) {
+        await prisma.user.delete({ where: { id: createdUserId } }).catch(cleanupErr => {
+          console.error('Failed to clean up unverified user after OTP delivery failure:', cleanupErr)
+        })
+      }
+      throw err
+    })
 
     return NextResponse.json({ user, verificationRequired: true, ...otp })
   } catch (err) {

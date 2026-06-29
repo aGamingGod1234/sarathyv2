@@ -129,20 +129,34 @@ export class OtpDeliveryError extends Error {
 type OtpDeliveryResponsePayload = {
   error: string
   code: OtpDeliveryErrorCode
-  suggestion: string
-  provider: string
-  providerStatus?: number
-  providerCode?: string
+  retryable: boolean
+}
+
+function publicDeliveryMessage(code: OtpDeliveryErrorCode) {
+  if (code === 'OTP_INVALID_RECIPIENT') {
+    return 'Could not send a code to that email address. Check the email and try again.'
+  }
+
+  if (code === 'OTP_EMAIL_RATE_LIMITED') {
+    return 'Too many code requests right now. Wait a few minutes and try again.'
+  }
+
+  if (code === 'OTP_EMAIL_QUOTA_EXCEEDED') {
+    return 'Email verification is temporarily unavailable. Please try again later.'
+  }
+
+  if (code === 'OTP_EMAIL_PROVIDER_UNAVAILABLE' || code === 'OTP_DELIVERY_FAILED') {
+    return 'Could not send the code right now. Please try again in a few minutes.'
+  }
+
+  return 'Email verification is temporarily unavailable. Please try again later.'
 }
 
 export function otpDeliveryErrorPayload(error: OtpDeliveryError): OtpDeliveryResponsePayload {
   return {
-    error: error.message,
+    error: publicDeliveryMessage(error.code),
     code: error.code,
-    suggestion: error.suggestion,
-    provider: error.provider,
-    providerStatus: error.providerStatus,
-    providerCode: error.providerCode,
+    retryable: error.status !== 400,
   }
 }
 

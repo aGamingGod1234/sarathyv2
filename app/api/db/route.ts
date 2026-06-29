@@ -49,6 +49,13 @@ const userOwnedTables = new Set<DbRequest['table']>([
 
 const MAX_PERSONAL_MONEY_AMOUNT = 10_000_000
 
+class DbRequestError extends Error {
+  constructor(message: string, readonly status = 400) {
+    super(message)
+    this.name = 'DbRequestError'
+  }
+}
+
 function json(data: unknown, error: string | null = null, status = 200) {
   return NextResponse.json({ data, error: error ? { message: error } : null }, { status })
 }
@@ -95,12 +102,12 @@ function normalizeValues(table: DbRequest['table'], values: any, userId: string 
   const normalizeMoney = (raw: unknown, label: string, options: { allowZero?: boolean; nullable?: boolean } = {}) => {
     if ((raw === null || raw === undefined || raw === '') && options.nullable) return null
     const value = Number(raw)
-    if (!Number.isFinite(value)) throw new Error(`${label} must be a valid number.`)
+    if (!Number.isFinite(value)) throw new DbRequestError(`${label} must be a valid number.`)
     if (options.allowZero ? value < 0 : value <= 0) {
-      throw new Error(`${label} must be ${options.allowZero ? '0 or more' : 'greater than 0'}.`)
+      throw new DbRequestError(`${label} must be ${options.allowZero ? '0 or more' : 'greater than 0'}.`)
     }
     if (value > MAX_PERSONAL_MONEY_AMOUNT) {
-      throw new Error(`${label} is too high for a personal budget. Enter a value below ${MAX_PERSONAL_MONEY_AMOUNT.toLocaleString('en-SG')}.`)
+      throw new DbRequestError(`${label} is too high for a personal budget. Enter a value below ${MAX_PERSONAL_MONEY_AMOUNT.toLocaleString('en-SG')}.`)
     }
     return Math.round(value * 100) / 100
   }
@@ -127,7 +134,7 @@ function normalizeValues(table: DbRequest['table'], values: any, userId: string 
       if ('due_day' in value && value.due_day !== null && value.due_day !== undefined && value.due_day !== '') {
         const dueDay = Number(value.due_day)
         if (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31) {
-          throw new Error('Due day must be between 1 and 31.')
+          throw new DbRequestError('Due day must be between 1 and 31.')
         }
         value.due_day = dueDay
       }
@@ -142,7 +149,7 @@ function normalizeValues(table: DbRequest['table'], values: any, userId: string 
     if (userId && table === 'profiles') next.id = userId
     if (userId && table === 'circles') next.created_by = userId
     if (userId && table === 'circle_members') next.user_id = userId
-    if (userId && table === 'circle_moments') next.sender_id = next.sender_id || userId
+    if (userId && table === 'circle_moments') next.sender_id = userId
     return validateOne(next)
   }
 
@@ -158,9 +165,34 @@ async function assertCircleMembership(circleId: string | undefined, userId: stri
   return Boolean(member)
 }
 
-async function applyAccessControl(table: DbRequest['table'], operation: DbRequest['operation'], where: Record<string, any>, userId: string | null) {
+function circleIdsFromValues(values: unknown) {
+  const rows = Array.isArray(values) ? values : [values]
+  return Array.from(new Set(
+    rows
+      .map(value => typeof value === 'object' && value !== null ? (value as Record<string, unknown>).circle_id : undefined)
+      .filter((circleId): circleId is string => typeof circleId === 'string' && circleId.length > 0),
+  ))
+}
+
+async function assertAllCircleMemberships(circleIds: string[], userId: string) {
+  if (circleIds.length === 0) return false
+  const memberships = await prisma.circleMember.findMany({
+    where: { user_id: userId, circle_id: { in: circleIds } },
+    select: { circle_id: true },
+  })
+  const joined = new Set(memberships.map(member => member.circle_id))
+  return circleIds.every(circleId => joined.has(circleId))
+}
+
+async function applyAccessControl(
+  table: DbRequest['table'],
+  operation: DbRequest['operation'],
+  where: Record<string, any>,
+  userId: string | null,
+  values?: unknown,
+) {
   if (table === 'waitlist' && operation === 'insert') return where
-  if (!userId) throw new Error('Not authenticated')
+  if (!userId) throw new DbRequestError('Sign in required.', 401)
 
   if (table === 'profiles') {
     return { ...where, id: userId }
@@ -195,11 +227,12 @@ async function applyAccessControl(table: DbRequest['table'], operation: DbReques
     if (operation === 'insert') return where
     if (where.user_id === userId) return where
     if (circleId && await assertCircleMembership(circleId, userId)) return where
-    throw new Error('Not allowed')
+    throw new DbRequestError('Not allowed.', 403)
   }
 
   if (table === 'circle_moments') {
     const circleId = typeof where.circle_id === 'string' ? where.circle_id : undefined
+    if (operation === 'insert' && await assertAllCircleMemberships(circleIdsFromValues(values), userId)) return where
     if (circleId && await assertCircleMembership(circleId, userId)) return where
     if (operation === 'update') {
       const momentId = typeof where.id === 'string' ? where.id : undefined
@@ -208,19 +241,27 @@ async function applyAccessControl(table: DbRequest['table'], operation: DbReques
         : null
       if (moment && await assertCircleMembership(moment.circle_id, userId)) return where
     }
-    throw new Error('Not allowed')
+    throw new DbRequestError('Not allowed.', 403)
   }
 
   return where
 }
 
-function friendlyPrismaError(err: unknown) {
-  if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    if (err.code === 'P2002') return 'duplicate record'
-    if (err.code === 'P2025') return 'record not found'
+function friendlyDbError(err: unknown) {
+  if (err instanceof DbRequestError) {
+    return { message: err.message, status: err.status }
   }
-  if (err instanceof Error) return err.message
-  return 'Database request failed'
+
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === 'P2002') return { message: 'Duplicate record.', status: 409 }
+    if (err.code === 'P2025') return { message: 'Record not found.', status: 404 }
+  }
+
+  if (err instanceof Prisma.PrismaClientValidationError) {
+    return { message: 'Invalid database request.', status: 400 }
+  }
+
+  return { message: 'Database request failed.', status: 500 }
 }
 
 export async function POST(req: Request) {
@@ -232,7 +273,7 @@ export async function POST(req: Request) {
     const session = await getServerSession(authOptions)
     const userId = session?.user?.id || null
     const rawWhere = buildWhere(body.filters || [])
-    const where = await applyAccessControl(body.table, body.operation, rawWhere, userId)
+    const where = await applyAccessControl(body.table, body.operation, rawWhere, userId, body.values)
     const select = parseSelect(body.select)
     const take = body.limit && body.limit > 0 ? body.limit : undefined
     const orderBy = body.order ? { [body.order.column]: body.order.ascending === false ? 'desc' : 'asc' } : undefined
@@ -288,6 +329,7 @@ export async function POST(req: Request) {
     return json(null, 'Unsupported operation', 400)
   } catch (err) {
     console.error('DB route failed:', err)
-    return json(null, friendlyPrismaError(err))
+    const friendly = friendlyDbError(err)
+    return json(null, friendly.message, friendly.status)
   }
 }

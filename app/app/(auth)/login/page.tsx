@@ -130,7 +130,7 @@ export default function LoginPage() {
               onChange={event => setRememberMe(event.target.checked)}
               className="h-4 w-4 rounded border-line text-saffron accent-saffron"
             />
-            Remember me for 60 days
+            Remember me
           </label>
 
           {error && (

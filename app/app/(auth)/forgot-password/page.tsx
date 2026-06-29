@@ -10,8 +10,6 @@ type ResetStage = 'request' | 'verify' | 'reset'
 
 type ErrorState = {
   message: string
-  code?: string
-  suggestion?: string
 }
 
 function cleanOtp(value: string) {
@@ -22,8 +20,6 @@ function toErrorState(err: any, fallback = 'Something went wrong'): ErrorState {
   if (typeof err === 'string') return { message: err }
   return {
     message: err?.message || fallback,
-    code: err?.code,
-    suggestion: err?.suggestion,
   }
 }
 
@@ -58,8 +54,6 @@ export default function ForgotPasswordPage() {
       if (payload?.cooldownSeconds) setCooldown(payload.cooldownSeconds)
       throw {
         message: payload?.error || 'Could not send reset code.',
-        code: payload?.code,
-        suggestion: payload?.suggestion,
       }
     }
     setCooldown(payload?.cooldownSeconds || 60)
@@ -283,12 +277,6 @@ export default function ForgotPasswordPage() {
           {error && (
             <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-danger" role="alert" aria-live="polite">
               <p>{error.message}</p>
-              {error.code && (
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wide">Code: {error.code}</p>
-              )}
-              {error.suggestion && (
-                <p className="mt-2 text-xs leading-relaxed">What to do: {error.suggestion}</p>
-              )}
             </div>
           )}
 

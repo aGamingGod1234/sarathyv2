@@ -11,8 +11,6 @@ type SignupStage = 'form' | 'verify'
 
 type ErrorState = {
   message: string
-  code?: string
-  suggestion?: string
   action?: string
 }
 
@@ -24,8 +22,6 @@ function toErrorState(err: any, fallback = 'Something went wrong'): ErrorState {
   if (typeof err === 'string') return { message: err }
   return {
     message: err?.message || fallback,
-    code: err?.code,
-    suggestion: err?.suggestion,
     action: err?.action,
   }
 }
@@ -113,8 +109,6 @@ export default function SignupPage() {
         if (payload?.cooldownSeconds) setCooldown(payload.cooldownSeconds)
         throw {
           message: payload?.error || 'Could not send another code.',
-          code: payload?.code,
-          suggestion: payload?.suggestion,
           action: payload?.action,
         }
       }
@@ -276,12 +270,6 @@ export default function SignupPage() {
           {error && (
             <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-danger" role="alert" aria-live="polite">
               <p>{error.message}</p>
-              {error.code && (
-                <p className="mt-2 text-xs font-semibold uppercase tracking-wide">Code: {error.code}</p>
-              )}
-              {error.suggestion && (
-                <p className="mt-2 text-xs leading-relaxed">What to do: {error.suggestion}</p>
-              )}
               {(error.action === '/app/login' || error.message.toLowerCase().includes('already exists')) && (
                 <Link href="/app/login" className="mt-2 block font-semibold text-saffron">
                   Go to sign in
