@@ -21,6 +21,8 @@ import {
   Sparkles,
   Target,
   UserRound,
+  Volume2,
+  VolumeX,
   WalletCards,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -192,6 +194,12 @@ const moneyTools: Array<{ title: string; body: string; tier: 'Starter' | 'Plus';
 
 const planOptions = [PLAN_DEFINITIONS.free, PLAN_DEFINITIONS.plus]
 
+const heroVideo = {
+  desktop: '/assets/hero/sarathy-hero-desktop-v4.mp4',
+  mobile: '/assets/hero/sarathy-hero-mobile-v4.mp4',
+  poster: '/assets/hero/sarathy-hero-poster-v4.webp',
+}
+
 export type LandingUser = {
   name?: string | null
   email?: string | null
@@ -283,7 +291,9 @@ function SectionHeading({
 
 export default function LandingPage({ initialUser = null }: { initialUser?: LandingUser | null }) {
   const rootRef = useRef<HTMLElement>(null)
+  const heroVideoRef = useRef<HTMLVideoElement>(null)
   const [user, setUser] = useState<LandingUser | null>(initialUser)
+  const [heroVideoMuted, setHeroVideoMuted] = useState(false)
   const isSignedIn = Boolean(user)
 
   useEffect(() => {
@@ -314,6 +324,48 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
+
+  useEffect(() => {
+    const video = heroVideoRef.current
+    if (!video) return
+
+    video.volume = 0.72
+
+    const startHeroVideo = async () => {
+      try {
+        video.muted = false
+        setHeroVideoMuted(false)
+        await video.play()
+      } catch {
+        video.muted = true
+        setHeroVideoMuted(true)
+        await video.play().catch(() => undefined)
+      }
+    }
+
+    void startHeroVideo()
+  }, [])
+
+  const toggleHeroVideoSound = async () => {
+    const video = heroVideoRef.current
+    if (!video) return
+
+    if (video.muted) {
+      video.volume = 0.72
+      video.muted = false
+      try {
+        await video.play()
+        setHeroVideoMuted(false)
+      } catch {
+        video.muted = true
+        setHeroVideoMuted(true)
+      }
+      return
+    }
+
+    video.muted = true
+    setHeroVideoMuted(true)
+  }
 
   useEffect(() => {
     let media:
@@ -393,13 +445,12 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
         const context = gsap.context(() => {
           installHeaderColor()
           gsap.set(
-            '.motion-word, .reveal-copy, .reveal-item, .motion-logo, .motion-nav, .hero-subcopy, .hero-cta-button, .hero-video-placeholder, .hero-meter, .motion-icon, .motion-chip, .motion-price, .motion-check, .motion-cta',
+            '.motion-word, .reveal-copy, .reveal-item, .motion-logo, .motion-nav, .hero-subcopy, .hero-cta-button, .hero-sound-button, .motion-icon, .motion-chip, .motion-price, .motion-check, .motion-cta',
             {
               autoAlpha: 1,
               clearProps: 'transform',
             },
           )
-          gsap.set('.hero-meter-fill', { scaleX: 1, transformOrigin: 'left center' })
         }, rootRef)
 
         return () => context.revert()
@@ -410,36 +461,15 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
           installHeaderColor()
 
           gsap.set('.motion-logo, .motion-nav', { autoAlpha: 0, y: -10 })
-          gsap.set('.hero-copy .motion-word, .hero-subcopy, .hero-cta-button', { autoAlpha: 0, y: 24 })
-          gsap.set('.hero-video-placeholder, .hero-meter', { autoAlpha: 0, y: 18 })
-          gsap.set('.hero-video-line', { autoAlpha: 0, scaleX: 0, transformOrigin: 'left center' })
-          gsap.set('.hero-meter-fill', { scaleX: 0, transformOrigin: 'left center' })
+          gsap.set('.hero-copy .motion-word, .hero-subcopy, .hero-cta-button, .hero-sound-button', { autoAlpha: 0, y: 24 })
 
           gsap.timeline({ defaults: { ease: 'power3.out' } })
             .to('.motion-logo', { autoAlpha: 1, y: 0, duration: 0.48 })
             .to('.motion-nav', { autoAlpha: 1, y: 0, duration: 0.42, stagger: 0.045 }, '<0.05')
             .to('.hero-copy .motion-word', { autoAlpha: 1, y: 0, duration: 0.52, stagger: 0.028 }, '<0.08')
             .to('.hero-subcopy', { autoAlpha: 1, y: 0, duration: 0.5 }, '-=0.24')
-            .to('.hero-video-line', { autoAlpha: 0.24, scaleX: 1, duration: 0.72, stagger: 0.035 }, '-=0.2')
-            .to('.hero-video-placeholder', { autoAlpha: 1, y: 0, duration: 0.52 }, '-=0.52')
-            .to('.hero-meter', { autoAlpha: 1, y: 0, duration: 0.42 }, '-=0.32')
-            .to('.hero-meter-fill', { scaleX: 1, duration: 0.9, ease: 'power2.out' }, '<0.08')
             .to('.hero-cta-button', { autoAlpha: 1, y: 0, duration: 0.46 }, '-=0.2')
-
-          const heroBackdrop = root?.querySelector('.shader-backdrop-hero')
-          if (heroBackdrop) {
-            gsap.to(heroBackdrop, {
-              yPercent: 7,
-              scale: 1.08,
-              ease: 'none',
-              scrollTrigger: {
-                trigger: '.landing-hero',
-                start: 'top top',
-                end: 'bottom top',
-                scrub: true,
-              },
-            })
-          }
+            .to('.hero-sound-button', { autoAlpha: 1, y: 0, duration: 0.36 }, '-=0.26')
 
           gsap.to('.hero-copy', {
             yPercent: -10,
@@ -582,37 +612,28 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
         </nav>
       </header>
 
-      <section className="landing-hero relative isolate min-h-screen overflow-hidden bg-[#080b12] text-white">
-        <div className="absolute inset-0" aria-hidden="true">
-          <ShaderBackdrop variant="hero" />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:88px_88px] opacity-[0.16]" />
-          <div className="absolute inset-x-6 top-28 space-y-5 opacity-60 md:inset-x-16 md:top-32">
-            {Array.from({ length: 15 }).map((_, index) => (
-              <div key={index} className="flex items-center gap-4">
-                <span className="w-5 text-xs text-white/25">{index + 1}</span>
-                <span className="hero-video-line h-px flex-1 bg-white/28" />
-              </div>
-            ))}
-          </div>
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_48%,transparent_0%,rgba(8,11,18,0.08)_42%,rgba(8,11,18,0.86)_100%)]" />
-        </div>
+      <section className="landing-hero relative isolate min-h-screen overflow-hidden bg-[#c65a17] text-white">
+        <video
+          ref={heroVideoRef}
+          className="absolute inset-0 h-full w-full object-cover object-center portrait:object-contain"
+          autoPlay
+          loop
+          playsInline
+          preload="auto"
+          poster={heroVideo.poster}
+          aria-label="Sarathy landing page video"
+        >
+          <source src={heroVideo.mobile} type="video/mp4" media="(max-width: 767px), (orientation: portrait)" />
+          <source src={heroVideo.desktop} type="video/mp4" />
+        </video>
 
-        <div className="hero-copy absolute left-5 top-32 z-10 max-w-md md:left-10 md:top-36 lg:left-16">
-          <h1 className="font-fraunces text-4xl font-semibold leading-[1.05] text-white md:text-5xl">
+        <div className="hero-copy absolute bottom-24 left-5 z-10 max-w-[min(34rem,calc(100vw-2.5rem))] md:left-10 lg:left-16">
+          <h1 className="font-fraunces text-4xl font-semibold leading-[1.05] text-plum [text-shadow:0_2px_18px_rgba(255,255,255,0.58)] md:text-5xl">
             <AnimatedWords text="We organize the chaos of finance" />
           </h1>
-          <p className="hero-subcopy mt-5 max-w-md text-sm leading-7 text-white/74 md:text-base">
+          <p className="hero-subcopy mt-5 max-w-md text-sm leading-7 text-[#2f1730] [text-shadow:0_2px_14px_rgba(255,255,255,0.54)] md:text-base">
             Sarathy organizes and makes it clear to you where your money is going in a clean and intuitive way.
           </p>
-        </div>
-
-        <div className="absolute inset-0 z-0 flex items-center justify-center px-5" aria-hidden="true">
-          <div className="hero-video-placeholder text-center">
-            <p className="font-mono text-6xl font-semibold text-mint/85 md:text-8xl">&lt; Video /&gt;</p>
-            <div className="hero-meter mx-auto mt-8 h-1.5 w-64 rounded-full bg-white/16 md:w-96">
-              <div className="hero-meter-fill h-full w-full rounded-full bg-mint" />
-            </div>
-          </div>
         </div>
 
         <div className="absolute inset-x-0 bottom-8 z-10 flex justify-center px-5 md:bottom-10">
@@ -620,6 +641,17 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
             <CtaLink isSignedIn={isSignedIn} />
           </div>
         </div>
+
+        <button
+          type="button"
+          className="hero-sound-button absolute bottom-8 right-5 z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/35 bg-black/25 text-white shadow-[0_12px_32px_rgba(0,0,0,0.22)] backdrop-blur-md transition hover:bg-black/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white md:bottom-10 md:right-10"
+          onClick={toggleHeroVideoSound}
+          aria-label={heroVideoMuted ? 'Turn hero video sound on' : 'Mute hero video'}
+          aria-pressed={!heroVideoMuted}
+          title={heroVideoMuted ? 'Turn sound on' : 'Mute video'}
+        >
+          {heroVideoMuted ? <VolumeX className="h-5 w-5" aria-hidden="true" /> : <Volume2 className="h-5 w-5" aria-hidden="true" />}
+        </button>
       </section>
 
       <section id="problem" className="scroll-section relative isolate scroll-mt-32 overflow-hidden border-y border-line bg-[#fbfaf8]">
