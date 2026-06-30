@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { getSession } from 'next-auth/react'
@@ -200,6 +200,8 @@ const heroVideo = {
   poster: '/assets/hero/sarathy-hero-poster-v4.webp',
 }
 
+const HERO_VIDEO_VOLUME = 0.72
+
 export type LandingUser = {
   name?: string | null
   email?: string | null
@@ -292,6 +294,9 @@ function SectionHeading({
 export default function LandingPage({ initialUser = null }: { initialUser?: LandingUser | null }) {
   const rootRef = useRef<HTMLElement>(null)
   const heroVideoRef = useRef<HTMLVideoElement>(null)
+  const heroAudioFrameRef = useRef<number | null>(null)
+  const heroAudioInHeroRef = useRef(true)
+  const heroSoundEnabledRef = useRef(true)
   const [user, setUser] = useState<LandingUser | null>(initialUser)
   const [heroVideoMuted, setHeroVideoMuted] = useState(false)
   const isSignedIn = Boolean(user)
@@ -325,19 +330,89 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
     }
   }, [])
 
+  const cancelHeroAudioFade = useCallback(() => {
+    if (heroAudioFrameRef.current === null) return
+
+    window.cancelAnimationFrame(heroAudioFrameRef.current)
+    heroAudioFrameRef.current = null
+  }, [])
+
+  const fadeHeroAudio = useCallback(
+    (
+      targetVolume: number,
+      options: { duration?: number; muteAtEnd?: boolean; unmuteOnStart?: boolean } = {},
+    ) => {
+      const video = heroVideoRef.current
+      if (!video) return
+
+      const duration = options.duration ?? 420
+      const safeTargetVolume = Math.max(0, Math.min(HERO_VIDEO_VOLUME, targetVolume))
+      const shouldMuteAtEnd = options.muteAtEnd ?? safeTargetVolume === 0
+
+      cancelHeroAudioFade()
+
+      if (options.unmuteOnStart) {
+        video.muted = false
+        setHeroVideoMuted(false)
+        void video.play().catch(() => {
+          video.muted = true
+          heroSoundEnabledRef.current = false
+          setHeroVideoMuted(true)
+        })
+      }
+
+      const startVolume = video.muted && safeTargetVolume > 0 ? 0 : video.volume
+      const startedAt = window.performance.now()
+
+      const step = (now: number) => {
+        const progress = duration <= 0 ? 1 : Math.min(1, (now - startedAt) / duration)
+        const easedProgress = 1 - Math.pow(1 - progress, 3)
+
+        video.volume = Math.max(
+          0,
+          Math.min(HERO_VIDEO_VOLUME, startVolume + (safeTargetVolume - startVolume) * easedProgress),
+        )
+
+        if (progress < 1) {
+          heroAudioFrameRef.current = window.requestAnimationFrame(step)
+          return
+        }
+
+        heroAudioFrameRef.current = null
+        video.volume = safeTargetVolume
+
+        if (shouldMuteAtEnd) {
+          video.muted = true
+          setHeroVideoMuted(true)
+          return
+        }
+
+        if (safeTargetVolume > 0) {
+          video.muted = false
+          setHeroVideoMuted(false)
+        }
+      }
+
+      heroAudioFrameRef.current = window.requestAnimationFrame(step)
+    },
+    [cancelHeroAudioFade],
+  )
+
   useEffect(() => {
     const video = heroVideoRef.current
     if (!video) return
 
-    video.volume = 0.72
+    video.volume = HERO_VIDEO_VOLUME
 
     const startHeroVideo = async () => {
       try {
         video.muted = false
+        heroSoundEnabledRef.current = true
         setHeroVideoMuted(false)
         await video.play()
       } catch {
         video.muted = true
+        heroSoundEnabledRef.current = false
         setHeroVideoMuted(true)
         await video.play().catch(() => undefined)
       }
@@ -346,25 +421,71 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
     void startHeroVideo()
   }, [])
 
+  useEffect(() => {
+    const hero = rootRef.current?.querySelector<HTMLElement>('.landing-hero')
+    if (!hero || !('IntersectionObserver' in window)) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const isHeroActive = entry.isIntersecting && entry.intersectionRatio >= 0.35
+        if (isHeroActive === heroAudioInHeroRef.current) return
+
+        heroAudioInHeroRef.current = isHeroActive
+
+        if (isHeroActive) {
+          if (heroSoundEnabledRef.current) {
+            fadeHeroAudio(HERO_VIDEO_VOLUME, { duration: 520, muteAtEnd: false, unmuteOnStart: true })
+          }
+          return
+        }
+
+        fadeHeroAudio(0, { duration: 480, muteAtEnd: true })
+      },
+      {
+        rootMargin: '-12% 0px -32% 0px',
+        threshold: [0, 0.2, 0.35, 0.5, 0.75, 1],
+      },
+    )
+
+    observer.observe(hero)
+
+    return () => {
+      observer.disconnect()
+      cancelHeroAudioFade()
+    }
+  }, [cancelHeroAudioFade, fadeHeroAudio])
+
   const toggleHeroVideoSound = async () => {
     const video = heroVideoRef.current
     if (!video) return
 
     if (video.muted) {
-      video.volume = 0.72
+      heroSoundEnabledRef.current = true
+
+      if (!heroAudioInHeroRef.current) {
+        cancelHeroAudioFade()
+        video.volume = 0
+        setHeroVideoMuted(true)
+        return
+      }
+
+      video.volume = 0
       video.muted = false
       try {
         await video.play()
         setHeroVideoMuted(false)
+        fadeHeroAudio(HERO_VIDEO_VOLUME, { duration: 420, muteAtEnd: false })
       } catch {
         video.muted = true
+        heroSoundEnabledRef.current = false
         setHeroVideoMuted(true)
       }
       return
     }
 
-    video.muted = true
+    heroSoundEnabledRef.current = false
     setHeroVideoMuted(true)
+    fadeHeroAudio(0, { duration: 280, muteAtEnd: true })
   }
 
   useEffect(() => {
