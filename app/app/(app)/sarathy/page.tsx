@@ -123,6 +123,8 @@ export default function SarathyPage() {
   const router = useRouter()
   const supabase = createClient()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const quotaShakeTimerRef = useRef<number | null>(null)
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -132,6 +134,7 @@ export default function SarathyPage() {
   const [isAnxious, setIsAnxious] = useState(false)
   const [chatUsage, setChatUsage] = useState<ChatUsage | null>(null)
   const [quotaNoticeDismissed, setQuotaNoticeDismissed] = useState(false)
+  const [composerShaking, setComposerShaking] = useState(false)
   const [todaySignal, setTodaySignal] = useState<{
     safeToSpend: number
     todaySpent: number
@@ -211,15 +214,83 @@ export default function SarathyPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const firstName = getFirstName(profile)
+  const quickChips = profile ? getSarathyQuickChips(profile) : FALLBACK_CHIPS
+  const signalPrompt = todaySignal?.topCategory
+    ? `Review my safe-to-spend today. I spent ${formatCurrency(todaySignal.todaySpent, todaySignal.currency)} today, have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend, and ${todaySignal.topCategory} is my biggest category this month.`
+    : todaySignal
+    ? `Review my safe-to-spend today. I spent ${formatCurrency(todaySignal.todaySpent, todaySignal.currency)} today and have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend.`
+    : ''
+  const suggestedChips = todaySignal
+    ? [
+        'Can I afford a purchase today?',
+        'What did I spend today?',
+        'Check a product price in SGD',
+        'What changed my safe-to-spend?',
+        todaySignal.status === 'danger' ? 'What should I pause today?' : 'Help me decide before I buy',
+      ]
+    : quickChips
+  const freeMessagesLeft = !chatUsage?.unlimited && chatUsage?.remaining !== null && chatUsage?.remaining !== undefined
+    ? chatUsage.remaining
+    : null
+  const isFreeQuotaExhausted = profile?.plan_tier !== 'plus'
+    && freeMessagesLeft !== null
+    && freeMessagesLeft <= 0
+  const showQuotaNotice = profile?.plan_tier !== 'plus'
+    && !quotaNoticeDismissed
+    && freeMessagesLeft !== null
+    && freeMessagesLeft <= 5
+  const messageLabel = freeMessagesLeft === 1 ? 'message' : 'messages'
+
+  const syncInputHeight = useCallback(() => {
+    const element = inputRef.current
+    if (!element) return
+
+    element.style.height = 'auto'
+    element.style.height = `${Math.min(element.scrollHeight, 132)}px`
+  }, [])
+
+  useEffect(() => {
+    syncInputHeight()
+  }, [input, syncInputHeight])
+
+  useEffect(() => () => {
+    if (quotaShakeTimerRef.current) {
+      window.clearTimeout(quotaShakeTimerRef.current)
+    }
+  }, [])
+
+  const triggerQuotaBlock = useCallback(() => {
+    setQuotaNoticeDismissed(false)
+    setComposerShaking(false)
+    window.requestAnimationFrame(() => setComposerShaking(true))
+
+    if (quotaShakeTimerRef.current) {
+      window.clearTimeout(quotaShakeTimerRef.current)
+    }
+    quotaShakeTimerRef.current = window.setTimeout(() => {
+      setComposerShaking(false)
+      quotaShakeTimerRef.current = null
+    }, 320)
+  }, [])
+
   const sendMessage = async (text: string, anxiousOverride = isAnxious) => {
-    if (!text.trim() || sending || !profile) return
+    const trimmedText = text.trim()
+    if (!trimmedText || sending || !profile) return
+
+    if (isFreeQuotaExhausted) {
+      triggerQuotaBlock()
+      setIsAnxious(false)
+      return
+    }
+
     setSending(true)
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       user_id: profile.id,
       role: 'user',
-      content: text,
+      content: trimmedText,
       created_at: new Date().toISOString(),
     }
     setMessages(prev => [...prev, userMsg])
@@ -246,7 +317,7 @@ export default function SarathyPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: text,
+          message: trimmedText,
           isAnxious: anxiousOverride,
           stream: true,
           source: 'chat',
@@ -273,6 +344,9 @@ export default function SarathyPage() {
         if (response.status === 429 && usage) {
           setChatUsage(usage)
           setQuotaNoticeDismissed(false)
+          setMessages(prev => prev.filter(msg => msg.id !== userMsg.id))
+          setInput(trimmedText)
+          triggerQuotaBlock()
           return
         }
         throw new Error(data.message || 'Sarathy could not answer right now.')
@@ -353,7 +427,6 @@ export default function SarathyPage() {
   }
 
   const handleAnxious = () => {
-    setIsAnxious(true)
     sendMessage("Ground me about my money right now. Tell me what is safe, what to pause, and the next small step.", true)
   }
 
@@ -365,35 +438,10 @@ export default function SarathyPage() {
     )
   }
 
-  const firstName = getFirstName(profile)
-  const quickChips = profile ? getSarathyQuickChips(profile) : FALLBACK_CHIPS
-  const signalPrompt = todaySignal?.topCategory
-    ? `Review my safe-to-spend today. I spent ${formatCurrency(todaySignal.todaySpent, todaySignal.currency)} today, have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend, and ${todaySignal.topCategory} is my biggest category this month.`
-    : todaySignal
-    ? `Review my safe-to-spend today. I spent ${formatCurrency(todaySignal.todaySpent, todaySignal.currency)} today and have ${formatCurrency(todaySignal.safeToSpend, todaySignal.currency)} safe to spend.`
-    : ''
-  const suggestedChips = todaySignal
-    ? [
-        'Can I afford a purchase today?',
-        'What did I spend today?',
-        'Check a product price in SGD',
-        'What changed my safe-to-spend?',
-        todaySignal.status === 'danger' ? 'What should I pause today?' : 'Help me decide before I buy',
-      ]
-    : quickChips
-  const freeMessagesLeft = !chatUsage?.unlimited && chatUsage?.remaining !== null && chatUsage?.remaining !== undefined
-    ? chatUsage.remaining
-    : null
-  const showQuotaNotice = profile?.plan_tier !== 'plus'
-    && !quotaNoticeDismissed
-    && freeMessagesLeft !== null
-    && freeMessagesLeft <= 5
-  const messageLabel = freeMessagesLeft === 1 ? 'message' : 'messages'
-
   return (
-    <div className="min-h-dvh bg-cream flex flex-col md:pl-28">
+    <div className="h-dvh overflow-hidden bg-cream flex flex-col md:pl-28">
       {/* Header */}
-      <div className="px-5 pt-12 pb-4 border-b border-cream-3 bg-cream md:px-8 lg:px-10">
+      <div className="flex-shrink-0 px-5 pt-12 pb-4 border-b border-cream-3 bg-cream md:px-8 lg:px-10">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between">
           <div>
             <h1 className="font-fraunces text-2xl font-semibold text-ink">Sarathy</h1>
@@ -411,7 +459,7 @@ export default function SarathyPage() {
       </div>
 
       {todaySignal && (
-        <div className="border-b border-cream-3 bg-white px-4 py-3">
+        <div className="flex-shrink-0 border-b border-cream-3 bg-white px-4 py-3">
           <div className="mx-auto flex max-w-5xl items-center gap-3">
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-saffron-soft text-saffron">
               <Sparkles className="h-4 w-4" />
@@ -438,7 +486,7 @@ export default function SarathyPage() {
       )}
 
       {/* Messages */}
-      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 pb-44 md:px-8 md:pb-36">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 overflow-y-auto px-4 py-4 md:px-8">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -478,7 +526,9 @@ export default function SarathyPage() {
       </div>
 
       {/* Input area */}
-      <div className="fixed bottom-16 left-0 right-0 bg-cream border-t border-cream-3 px-4 py-3 pb-safe md:bottom-6 md:left-32 md:right-8 md:mx-auto md:max-w-5xl md:rounded-2xl md:border">
+      <div
+        className={`mx-auto mb-16 w-full flex-shrink-0 bg-cream border-t border-cream-3 px-4 py-3 pb-safe transition-transform md:mb-6 md:max-w-5xl md:rounded-2xl md:border md:px-6 ${composerShaking ? 'sarathy-composer-quota-shake' : ''}`}
+      >
         {showQuotaNotice && (
           <div className="mb-3 flex items-center gap-3 rounded-2xl border border-saffron/25 bg-white px-3 py-2.5 shadow-[0_14px_34px_rgba(30,10,46,0.08)]">
             <p className="min-w-0 flex-1 text-xs font-medium leading-relaxed text-ink">
@@ -507,7 +557,8 @@ export default function SarathyPage() {
             <button
               key={chip}
               onClick={() => sendMessage(chip)}
-              className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-full bg-saffron-soft text-saffron border border-saffron/20 active:bg-saffron active:text-white transition-colors"
+              aria-disabled={isFreeQuotaExhausted || sending}
+              className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-full bg-saffron-soft text-saffron border border-saffron/20 active:bg-saffron active:text-white transition-colors aria-disabled:cursor-not-allowed aria-disabled:opacity-70"
             >
               {chip}
             </button>
@@ -516,13 +567,19 @@ export default function SarathyPage() {
 
         {/* Text input */}
         <div className="flex gap-2">
-          <input
-            type="text"
+          <textarea
+            ref={inputRef}
+            rows={1}
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && sendMessage(input)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                sendMessage(input)
+              }
+            }}
             placeholder="Ask Sarathy anything..."
-            className="input-field flex-1 py-3 text-sm"
+            className="input-field flex-1 max-h-32 resize-none overflow-y-auto py-3 text-sm"
           />
           <button
             onClick={() => sendMessage(input)}

@@ -31,10 +31,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ sent: true, ...otp })
   } catch (err) {
     if (err instanceof OtpCooldownError) {
-      return NextResponse.json(
-        { error: err.message, code: 'OTP_COOLDOWN', cooldownSeconds: err.cooldownSeconds },
-        { status: 429 },
-      )
+      return NextResponse.json({ sent: true, cooldownSeconds: err.cooldownSeconds })
     }
 
     if (err instanceof OtpDeliveryError) {

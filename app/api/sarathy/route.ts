@@ -30,9 +30,13 @@ const SARATHY_INSTRUCTIONS = [
   'Never pretend to know data that was not provided. If a field is unknown, do not mention it.',
   'If the user asks what they spent, what changed, or why safe-to-spend is low, use the provided transaction, category, fixed-cost, and safety-calculation data. Do not say you cannot see totals when those totals are in context.',
   'When numbers are provided, use them directly and explain what they mean in practical terms.',
+  'Treat direct user statements as facts unless they are impossible or clearly ambiguous. If the user says they spent, paid, bought, or purchased an amount, do not ask whether they spent it; assume they are reporting a spend.',
+  'If the user reports a spend that is not in app transactions yet, say it is not logged yet, then explain the impact if it is added and suggest logging it.',
+  'Handle obvious typos in normal money language without making the user restate themselves.',
   'If product price context is provided, use it before making an affordability call. Mention the source label briefly.',
   'If the user asks about a product without a price and no reliable price is available, ask for a link or exact price instead of guessing.',
   'If the user is anxious, validate once, then give the safest concrete next action.',
+  'If the user repeats the same prompt, do not copy the previous answer. Keep the facts consistent, but vary the wording and add one new useful angle or next step.',
   'Do not be salesy, noisy, moralizing, overly cheerful, dramatic, or repetitive.',
   'Use plain ASCII punctuation only. Do not use em dashes, en dashes, smart quotes, ellipses, or decorative symbols.',
   'Avoid generic disclaimers unless the user asks for formal financial advice. Keep the answer under 80 words unless the user asks for detail.',
@@ -56,6 +60,61 @@ function normalizeAssistantMessage(message: string) {
 
 function listLines(lines: string[], empty = 'none') {
   return lines.length ? lines.join('\n') : empty
+}
+
+function normalizeForRepeatCheck(value: unknown) {
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function detectReportedSpend(message: string, fallbackCurrency: string) {
+  const patterns = [
+    /\b(?:i\s+)?(?:just\s+|already\s+|now\s+)?(?:spent|sepnt|spnet|paid|bought|purchased|got|ordered)\b[\s\S]{0,90}?\b(s\$|sgd|\$)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i,
+    /\b(s\$|sgd|\$)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)\b[\s\S]{0,90}?\b(?:spent|sepnt|spnet|paid|bought|purchased|got|ordered)\b/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = message.match(pattern)
+    if (!match) continue
+
+    const symbol = (match[1] || '').toLowerCase()
+    const amount = Number(match[2].replace(/,/g, ''))
+    if (!Number.isFinite(amount) || amount <= 0) continue
+
+    return {
+      amount,
+      currency: symbol === 's$' || symbol === 'sgd' || symbol === '$' ? fallbackCurrency : fallbackCurrency,
+    }
+  }
+
+  return null
+}
+
+function buildTurnGuidanceBlock(message: string, history: SarathyHistoryItem[], currency: string) {
+  const lines: string[] = []
+  const reportedSpend = detectReportedSpend(message, currency)
+
+  if (reportedSpend) {
+    lines.push(
+      'The user appears to be reporting a completed spend, not asking whether it happened.',
+      `Reported spend amount to use for impact analysis: ${formatCurrency(reportedSpend.amount, reportedSpend.currency)}.`,
+      'If this spend is missing from today transactions, explicitly say it is not logged yet and explain the impact if the user logs it.',
+      'Do not ask "did you spend this amount?" or ask them to confirm the amount unless the currency is truly unclear.',
+    )
+  }
+
+  const normalizedMessage = normalizeForRepeatCheck(message)
+  const repeatCount = history.filter(item =>
+    item.role !== 'assistant' && normalizeForRepeatCheck(item.content) === normalizedMessage
+  ).length
+
+  if (repeatCount > 0) {
+    lines.push(
+      `The user has already sent this or nearly the same prompt ${repeatCount} time${repeatCount === 1 ? '' : 's'} in the recent memory window.`,
+      'Answer with the same financial facts, but do not reuse the same sentence structure. Add one concise next step or different angle.',
+    )
+  }
+
+  return lines.length ? listLines(lines) : 'No special turn handling.'
 }
 
 function formatEntryLine(entry: BudgetEntry, currency: string) {
@@ -258,10 +317,9 @@ function buildPrompt({
 }) {
   if (!context) return message
   const targetCurrency = context.profile.primary_currency || 'SGD'
+  const turnGuidance = buildTurnGuidanceBlock(message, history, targetCurrency)
 
   return [
-    `User message: ${message}`,
-    '',
     'Current user money context:',
     buildContextBlock(context),
     '',
@@ -271,6 +329,11 @@ function buildPrompt({
     history.length
       ? `Recent conversation from current 30-minute memory window:\n${buildHistoryBlock(history)}`
       : 'Recent conversation from current 30-minute memory window: none',
+    '',
+    'Turn-specific interpretation guidance:',
+    turnGuidance,
+    '',
+    `Current user message: ${message}`,
     '',
     isAnxious
       ? 'The user is anxious. Be grounding, concrete, and non-judgmental.'

@@ -9,6 +9,10 @@ import {
   otpDeliveryErrorPayload,
 } from '@/lib/otp'
 
+function verificationSentPayload(cooldownSeconds = 60) {
+  return { sent: true, cooldownSeconds }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -23,22 +27,15 @@ export async function POST(req: Request) {
       select: { id: true, emailVerified: true },
     })
 
-    if (!user) {
-      return NextResponse.json({ error: 'Create an account first.' }, { status: 404 })
-    }
-
-    if (user.emailVerified) {
-      return NextResponse.json({ verified: true })
+    if (!user || user.emailVerified) {
+      return NextResponse.json(verificationSentPayload())
     }
 
     const otp = await issueOtp({ email, purpose: 'email-verification' })
     return NextResponse.json({ sent: true, ...otp })
   } catch (err) {
     if (err instanceof OtpCooldownError) {
-      return NextResponse.json(
-        { error: err.message, code: 'OTP_COOLDOWN', cooldownSeconds: err.cooldownSeconds },
-        { status: 429 },
-      )
+      return NextResponse.json(verificationSentPayload(err.cooldownSeconds))
     }
 
     if (err instanceof OtpDeliveryError) {

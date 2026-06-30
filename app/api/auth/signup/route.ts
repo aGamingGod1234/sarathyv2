@@ -6,10 +6,20 @@ import {
   isValidEmail,
   issueOtp,
   normalizeEmail,
+  OTP_TTL_MS,
   OtpCooldownError,
   OtpDeliveryError,
   otpDeliveryErrorPayload,
 } from '@/lib/otp'
+
+function verificationQueuedPayload(cooldownSeconds = 60) {
+  return {
+    user: null,
+    sent: true,
+    verificationRequired: true,
+    cooldownSeconds,
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -33,14 +43,7 @@ export async function POST(req: Request) {
 
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing?.emailVerified) {
-      return NextResponse.json(
-        {
-          error: 'An account already exists for this email. Sign in instead, or use forgot password if you need a new password.',
-          code: 'ACCOUNT_EXISTS',
-          action: '/app/login',
-        },
-        { status: 409 },
-      )
+      return NextResponse.json(verificationQueuedPayload())
     }
 
     const password_hash = await bcrypt.hash(password, 12)
@@ -56,34 +59,39 @@ export async function POST(req: Request) {
 
     let createdUserId: string | null = null
 
-    const user = existing
-      ? await prisma.user.update({
-          where: { id: existing.id },
-          data: {
-            name: name || existing.name || email.split('@')[0],
-            password_hash,
-            profile: {
-              upsert: {
-                update: { name: name || undefined },
-                create: profileDefaults,
-              },
-            },
-          },
-          select: { id: true, email: true, name: true },
-        })
-      : await prisma.user.create({
-          data: {
-            email,
-            name: name || email.split('@')[0],
-            password_hash,
-            profile: {
-              create: profileDefaults,
-            },
-          },
-          select: { id: true, email: true, name: true },
-        })
+    if (existing) {
+      const otp = await issueOtp({ email, purpose: 'email-verification' })
+      await prisma.pendingCredentialChange.upsert({
+        where: { email },
+        update: {
+          name: name || existing.name || email.split('@')[0],
+          password_hash,
+          expires: new Date(Date.now() + OTP_TTL_MS),
+        },
+        create: {
+          email,
+          name: name || existing.name || email.split('@')[0],
+          password_hash,
+          expires: new Date(Date.now() + OTP_TTL_MS),
+        },
+      })
 
-    if (!existing) createdUserId = user.id
+      return NextResponse.json({ ...verificationQueuedPayload(otp.cooldownSeconds), ...otp })
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: name || email.split('@')[0],
+        password_hash,
+        profile: {
+          create: profileDefaults,
+        },
+      },
+      select: { id: true, email: true, name: true },
+    })
+
+    createdUserId = user.id
 
     const otp = await issueOtp({ email, purpose: 'email-verification' }).catch(async err => {
       if (createdUserId) {
@@ -94,13 +102,10 @@ export async function POST(req: Request) {
       throw err
     })
 
-    return NextResponse.json({ user, verificationRequired: true, ...otp })
+    return NextResponse.json({ ...verificationQueuedPayload(otp.cooldownSeconds), ...otp })
   } catch (err) {
     if (err instanceof OtpCooldownError) {
-      return NextResponse.json(
-        { error: err.message, code: 'OTP_COOLDOWN', cooldownSeconds: err.cooldownSeconds },
-        { status: 429 },
-      )
+      return NextResponse.json(verificationQueuedPayload(err.cooldownSeconds))
     }
 
     if (err instanceof OtpDeliveryError) {
@@ -108,14 +113,7 @@ export async function POST(req: Request) {
     }
 
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      return NextResponse.json(
-        {
-          error: 'An account already exists for this email. Sign in instead, or use forgot password if you need a new password.',
-          code: 'ACCOUNT_EXISTS',
-          action: '/app/login',
-        },
-        { status: 409 },
-      )
+      return NextResponse.json(verificationQueuedPayload())
     }
 
     console.error('Signup failed:', err)

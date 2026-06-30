@@ -23,6 +23,13 @@ export async function POST(req: Request) {
 
     const result = await verifyOtp({ email, purpose: 'password-reset', otp })
     if (!result.ok) {
+      if (result.reason === 'rate_limited') {
+        return NextResponse.json(
+          { error: 'Too many attempts. Send a new code later.', cooldownSeconds: result.retryAfterSeconds },
+          { status: 429 },
+        )
+      }
+
       return NextResponse.json(
         { error: result.reason === 'expired' ? 'That code expired. Send a new one.' : 'Invalid reset code.' },
         { status: 400 },

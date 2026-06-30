@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { Prisma } from '@prisma/client'
@@ -50,6 +51,105 @@ const userOwnedTables = new Set<DbRequest['table']>([
 const MAX_PERSONAL_MONEY_AMOUNT = 10_000_000
 const BLOCKED_PROFILE_WRITE_FIELDS = ['plan_tier', 'created_at', 'updated_at'] as const
 const CIRCLE_MEMBER_UPDATE_FIELDS = new Set(['display_name'])
+const COLUMN_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
+
+const scalarFields: Record<DbRequest['table'], Set<string>> = {
+  profiles: new Set([
+    'id',
+    'name',
+    'home_country',
+    'current_country',
+    'user_types',
+    'primary_currency',
+    'language_preference',
+    'planning_amount',
+    'total_money',
+    'money_type',
+    'responsible_for',
+    'money_fear',
+    'income_timing',
+    'companion_vibe',
+    'plan_tier',
+    'daily_login_streak',
+    'last_login_date',
+    'total_xp',
+    'level',
+    'achievements',
+    'onboarding_complete',
+    'colour_theme',
+    'quiet_mode_until',
+    'created_at',
+    'updated_at',
+  ]),
+  budget_entries: new Set([
+    'id',
+    'user_id',
+    'category',
+    'amount',
+    'original_amount',
+    'original_currency',
+    'description',
+    'entry_date',
+    'payment_method',
+    'logged_via',
+    'created_at',
+  ]),
+  fixed_spending: new Set([
+    'id',
+    'user_id',
+    'name',
+    'emoji',
+    'amount',
+    'frequency',
+    'due_day',
+    'is_active',
+    'created_at',
+  ]),
+  goals: new Set([
+    'id',
+    'user_id',
+    'name',
+    'emoji',
+    'target_amount',
+    'current_amount',
+    'deadline',
+    'user_caption',
+    'created_at',
+  ]),
+  mood_logs: new Set(['id', 'user_id', 'mood', 'entry_date', 'created_at']),
+  chat_messages: new Set(['id', 'user_id', 'role', 'content', 'created_at']),
+  remittance_logs: new Set([
+    'id',
+    'user_id',
+    'amount',
+    'provider',
+    'rate',
+    'fee',
+    'recipient_gets',
+    'source_currency',
+    'destination_currency',
+    'created_at',
+  ]),
+  waitlist: new Set([
+    'id',
+    'name',
+    'email',
+    'user_type',
+    'country_from',
+    'country_now',
+    'sends_money_home',
+    'money_stress',
+    'current_tool',
+    'biggest_pain',
+    'feature_excited',
+    'wants_beta',
+    'referral',
+    'created_at',
+  ]),
+  circles: new Set(['id', 'name', 'invite_code', 'created_by', 'created_at']),
+  circle_members: new Set(['id', 'circle_id', 'user_id', 'display_name', 'created_at']),
+  circle_moments: new Set(['id', 'circle_id', 'sender_id', 'type', 'content', 'reactions', 'created_at']),
+}
 
 class DbRequestError extends Error {
   constructor(message: string, readonly status = 400) {
@@ -62,7 +162,13 @@ function json(data: unknown, error: string | null = null, status = 200) {
   return NextResponse.json({ data, error: error ? { message: error } : null }, { status })
 }
 
-function parseSelect(columns?: string) {
+function assertAllowedColumn(table: DbRequest['table'], column: string, label: string) {
+  if (!COLUMN_NAME_PATTERN.test(column) || !scalarFields[table].has(column)) {
+    throw new DbRequestError(`Invalid ${label}.`, 400)
+  }
+}
+
+function parseSelect(table: DbRequest['table'], columns?: string) {
   if (!columns || columns.trim() === '*') return undefined
   const names = columns
     .split(',')
@@ -71,16 +177,18 @@ function parseSelect(columns?: string) {
 
   if (names.length === 0) return undefined
   return names.reduce<Record<string, boolean>>((select, column) => {
+    assertAllowedColumn(table, column, 'select column')
     select[column] = true
     return select
   }, {})
 }
 
-function buildWhere(filters: Filter[] = []) {
+function buildWhere(table: DbRequest['table'], filters: Filter[] = []) {
   const where: Record<string, any> = {}
 
   for (const filter of filters) {
     if (!filter.column) continue
+    assertAllowedColumn(table, filter.column, 'filter column')
     if (filter.op === 'eq') {
       where[filter.column] = filter.value
       continue
@@ -91,6 +199,10 @@ function buildWhere(filters: Filter[] = []) {
       continue
     }
 
+    if (filter.op !== 'gte' && filter.op !== 'lt') {
+      throw new DbRequestError('Invalid filter operator.', 400)
+    }
+
     where[filter.column] = {
       ...(typeof where[filter.column] === 'object' && where[filter.column] !== null ? where[filter.column] : {}),
       [filter.op]: filter.value,
@@ -98,6 +210,12 @@ function buildWhere(filters: Filter[] = []) {
   }
 
   return where
+}
+
+function sanitizeOrder(table: DbRequest['table'], order?: DbRequest['order']) {
+  if (!order) return undefined
+  assertAllowedColumn(table, order.column, 'order column')
+  return { [order.column]: order.ascending === false ? 'desc' : 'asc' }
 }
 
 function isValidEmail(value: unknown) {
@@ -110,6 +228,8 @@ function normalizeValues(
   userId: string | null,
   operation: DbRequest['operation'],
 ) {
+  const generateInviteCode = () => crypto.randomBytes(8).toString('hex')
+
   const normalizeMoney = (raw: unknown, label: string, options: { allowZero?: boolean; nullable?: boolean } = {}) => {
     if ((raw === null || raw === undefined || raw === '') && options.nullable) return null
     const value = Number(raw)
@@ -182,7 +302,10 @@ function normalizeValues(
     const next = { ...value }
     if (userId && userOwnedTables.has(table)) next.user_id = userId
     if (userId && table === 'profiles') next.id = userId
-    if (userId && table === 'circles' && operation === 'insert') next.created_by = userId
+    if (userId && table === 'circles' && operation === 'insert') {
+      next.created_by = userId
+      next.invite_code = generateInviteCode()
+    }
     if (userId && table === 'circle_members' && operation === 'insert') next.user_id = userId
     if (userId && table === 'circle_moments' && operation === 'insert') next.sender_id = userId
     return validateOne(next)
@@ -279,7 +402,10 @@ async function applyAccessControl(
   userId: string | null,
   values?: unknown,
 ) {
-  if (table === 'waitlist' && operation === 'insert') return where
+  if (table === 'waitlist') {
+    if (operation === 'insert') return where
+    throw new DbRequestError('Not allowed.', 403)
+  }
   if (!userId) throw new DbRequestError('Sign in required.', 401)
 
   if (table === 'profiles') {
@@ -293,8 +419,7 @@ async function applyAccessControl(
   if (table === 'circles') {
     if (operation === 'insert') return where
     if (where.invite_code) {
-      if (operation !== 'select') throw new DbRequestError('Not allowed.', 403)
-      return where
+      throw new DbRequestError('Not allowed.', 403)
     }
 
     const idFilter = where.id
@@ -396,11 +521,11 @@ export async function POST(req: Request) {
 
     const session = await getServerSession(authOptions)
     const userId = session?.user?.id || null
-    const rawWhere = buildWhere(body.filters || [])
+    const rawWhere = buildWhere(body.table, body.filters || [])
     const where = await applyAccessControl(body.table, body.operation, rawWhere, userId, body.values)
-    const select = parseSelect(body.select)
+    const select = parseSelect(body.table, body.select)
     const take = body.limit && body.limit > 0 ? body.limit : undefined
-    const orderBy = body.order ? { [body.order.column]: body.order.ascending === false ? 'desc' : 'asc' } : undefined
+    const orderBy = sanitizeOrder(body.table, body.order)
 
     if (body.operation === 'select') {
       const args = { where, ...(select ? { select } : {}), ...(orderBy ? { orderBy } : {}), ...(take ? { take } : {}) }

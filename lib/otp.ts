@@ -1,5 +1,12 @@
 import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
+import {
+  assertSecurityAttemptAllowed,
+  clearSecurityAttempts,
+  recordSecurityAttemptFailure,
+  SecurityAttemptLimitError,
+  type SecurityAttemptScope,
+} from '@/lib/security-attempts'
 
 export type OtpPurpose = 'email-verification' | 'password-reset'
 
@@ -190,6 +197,10 @@ function otpSecret() {
 
 function identifierFor(email: string, purpose: OtpPurpose) {
   return `${purpose}:${email}`
+}
+
+function attemptScopeFor(purpose: OtpPurpose): SecurityAttemptScope {
+  return purpose === 'password-reset' ? 'otp:password-reset' : 'otp:email-verification'
 }
 
 function hashOtp(identifier: string, otp: string) {
@@ -397,19 +408,50 @@ export async function issueOtp({ email, purpose }: IssueOtpInput) {
 
 export async function verifyOtp({ email, purpose, otp, consume = true }: VerifyOtpInput) {
   const normalizedEmail = normalizeEmail(email)
-  const cleanOtp = String(otp || '').replace(/\D/g, '')
-  if (!/^\d{6}$/.test(cleanOtp)) {
+  const identifier = identifierFor(normalizedEmail, purpose)
+  const attemptScope = attemptScopeFor(purpose)
+
+  const invalidResult = async () => {
+    try {
+      await recordSecurityAttemptFailure(attemptScope, identifier)
+    } catch (err) {
+      if (err instanceof SecurityAttemptLimitError) {
+        return {
+          ok: false as const,
+          reason: 'rate_limited' as const,
+          retryAfterSeconds: err.retryAfterSeconds,
+        }
+      }
+      throw err
+    }
     return { ok: false as const, reason: 'invalid' as const }
   }
 
-  const identifier = identifierFor(normalizedEmail, purpose)
+  try {
+    await assertSecurityAttemptAllowed(attemptScope, identifier)
+  } catch (err) {
+    if (err instanceof SecurityAttemptLimitError) {
+      return {
+        ok: false as const,
+        reason: 'rate_limited' as const,
+        retryAfterSeconds: err.retryAfterSeconds,
+      }
+    }
+    throw err
+  }
+
+  const cleanOtp = String(otp || '').replace(/\D/g, '')
+  if (!/^\d{6}$/.test(cleanOtp)) {
+    return invalidResult()
+  }
+
   const token = hashOtp(identifier, cleanOtp)
   const record = await prisma.verificationToken.findUnique({
     where: { identifier_token: { identifier, token } },
   })
 
   if (!record) {
-    return { ok: false as const, reason: 'invalid' as const }
+    return invalidResult()
   }
 
   if (record.expires.getTime() <= Date.now()) {
@@ -420,6 +462,8 @@ export async function verifyOtp({ email, purpose, otp, consume = true }: VerifyO
   if (consume) {
     await prisma.verificationToken.deleteMany({ where: { identifier } })
   }
+
+  await clearSecurityAttempts(attemptScope, identifier)
 
   return { ok: true as const, expiresAt: record.expires }
 }

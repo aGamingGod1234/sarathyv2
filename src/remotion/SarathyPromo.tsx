@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, type CSSProperties, type ReactNode } from 'react'
 import {
   AbsoluteFill,
   Easing,
@@ -15,12 +15,16 @@ import {
 import {
   AlertCircle,
   BarChart3,
+  Brain,
   Bus,
   CalendarClock,
   CheckCircle2,
   Coffee,
   CreditCard,
+  Database,
+  Download,
   Dumbbell,
+  FileText,
   Gift,
   GraduationCap,
   HeartPulse,
@@ -31,6 +35,7 @@ import {
   Plane,
   ReceiptText,
   SendHorizontal,
+  ShieldCheck,
   ShoppingBag,
   Sparkles,
   Utensils,
@@ -74,6 +79,7 @@ const { fontFamily: MONTSERRAT_FONT } = loadMontserrat('normal', {
 
 const FONT =
   '"SF Pro Display", "SF Pro Text", "San Francisco", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+const BRAND_FONT = "Georgia, 'Times New Roman', serif"
 const FEATURE_FONT = `${MONTSERRAT_FONT}, ${FONT}`
 const EASE_OUT = Easing.bezier(0.16, 1, 0.3, 1)
 const EASE_IN = Easing.in(Easing.cubic)
@@ -84,13 +90,21 @@ const TIMELINE_FPS = 30
 const SCATTERED_END_FRAME = 120
 const TRACKER_START_FRAME = SCATTERED_END_FRAME
 const TRACKER_ZOOM_START_FRAME = 260
-const TRACKER_ZOOM_DURATION_FRAMES = 18
+const TRACKER_ZOOM_FRAMES_BEFORE_CUT = 18
+const TRACKER_TO_INTRO_OVERLAP_FRAMES = 11
+const TRACKER_ZOOM_TOTAL_FRAMES = 20
 const TRACKER_ZOOM_START_LOCAL_FRAME = TRACKER_ZOOM_START_FRAME - TRACKER_START_FRAME
-const TRACKER_DURATION_FRAMES = TRACKER_ZOOM_START_LOCAL_FRAME + TRACKER_ZOOM_DURATION_FRAMES + 1
+const TRACKER_DURATION_FRAMES = TRACKER_ZOOM_START_LOCAL_FRAME + TRACKER_ZOOM_FRAMES_BEFORE_CUT + 1
 const SEQUENCE_2_END_FRAME = TRACKER_START_FRAME + TRACKER_DURATION_FRAMES
 const SEQUENCE_4_END_FRAME = 520
 const SEQUENCE_5_END_FRAME = 800
-const TOTAL_DURATION_IN_FRAMES = 1040
+const CHATBOT_END_FRAME = 1040
+const TOOLS_SCENE_DURATION_FRAMES = 170
+const TOOLS_SCENE_END_FRAME = CHATBOT_END_FRAME + TOOLS_SCENE_DURATION_FRAMES
+const CTA_SCENE_DURATION_FRAMES = 90
+const CTA_SCENE_END_FRAME = TOOLS_SCENE_END_FRAME + CTA_SCENE_DURATION_FRAMES
+const LOGO_END_DURATION_FRAMES = 110
+const TOTAL_DURATION_IN_FRAMES = CTA_SCENE_END_FRAME + LOGO_END_DURATION_FRAMES
 const clamp = {
   extrapolateLeft: 'clamp' as const,
   extrapolateRight: 'clamp' as const,
@@ -102,7 +116,10 @@ const sceneDurations = {
   intro: 117,
   method: SEQUENCE_4_END_FRAME - SEQUENCE_2_END_FRAME - 117,
   close: SEQUENCE_5_END_FRAME - SEQUENCE_4_END_FRAME,
-  chatbot: TOTAL_DURATION_IN_FRAMES - SEQUENCE_5_END_FRAME,
+  chatbot: CHATBOT_END_FRAME - SEQUENCE_5_END_FRAME,
+  tools: TOOLS_SCENE_DURATION_FRAMES,
+  cta: CTA_SCENE_DURATION_FRAMES,
+  logoEnd: LOGO_END_DURATION_FRAMES,
 }
 
 function ease(frame: number, start: number, duration: number, easing = EASE_OUT) {
@@ -141,7 +158,10 @@ const base: CSSProperties = {
 }
 
 function VideoShaderBackground() {
+  const frame = useCurrentFrame()
+  const { fps } = useVideoConfig()
   const shaderHandle = useMemo(() => delayRender('ShaderGradient background warmup'), [])
+  const shaderTime = 0.2 + (frame / fps) * 0.3
 
   useEffect(() => {
     const timeout = setTimeout(() => continueRender(shaderHandle), 800)
@@ -166,7 +186,7 @@ function VideoShaderBackground() {
         }}
       >
         <ShaderGradient
-          animate="on"
+          animate="off"
           brightness={1}
           cAzimuthAngle={180}
           cDistance={2.4}
@@ -197,9 +217,9 @@ function VideoShaderBackground() {
           uAmplitude={0}
           uDensity={1.8}
           uFrequency={5.5}
-          uSpeed={0.3}
+          uSpeed={1}
           uStrength={3}
-          uTime={0.2}
+          uTime={shaderTime}
           wireframe={false}
         />
       </ShaderGradientCanvas>
@@ -212,6 +232,14 @@ function orangeText(_: number): CSSProperties {
     color: COLORS.orangeText,
     WebkitTextFillColor: COLORS.orangeText,
     textShadow: '0 3px 14px rgba(60,16,0,0.36)',
+  }
+}
+
+function aiAccentText(_: number): CSSProperties {
+  return {
+    color: '#6FF7FF',
+    WebkitTextFillColor: '#6FF7FF',
+    textShadow: '0 4px 18px rgba(0,34,45,0.42)',
   }
 }
 
@@ -383,7 +411,7 @@ function ExpenseToken({
 }
 
 function ScatteredTitle({ frame }: { frame: number }) {
-  const money = fastFadeUp(frame, 4, 14)
+  const money = fastFadeUp(frame, 0, 14)
   const is = fastFadeUp(frame, 13, 14)
   const scatteredReveal = ease(frame, 22, 12)
   const scatteredRedProgress = ease(frame, 30, 54)
@@ -454,7 +482,7 @@ function ScatteredTitle({ frame }: { frame: number }) {
 
 function ScatteredScene({ duration }: { duration: number }) {
   const frame = useCurrentFrame()
-  const enter = ease(frame, 0, 16)
+  const enter = interpolate(frame, [0, 16], [0.74, 1], clamp)
   const exit = interpolate(frame, [120, 135], [1, 0], clamp)
   return (
     <AbsoluteFill style={{ opacity: enter * exit }}>
@@ -651,14 +679,94 @@ function TrackerVisuals({ frame }: { frame: number }) {
 
 function TrackerScene(_: { duration: number }) {
   const frame = useCurrentFrame()
-  const zoomProgress = ease(frame, TRACKER_ZOOM_START_LOCAL_FRAME, TRACKER_ZOOM_DURATION_FRAMES, EASE_IN)
-  const zoomScale = interpolate(zoomProgress, [0, 1], [1, 6.5])
+  const zoomScaleAt = (atFrame: number) =>
+    interpolate(ease(atFrame, TRACKER_ZOOM_START_LOCAL_FRAME, TRACKER_ZOOM_TOTAL_FRAMES, EASE_IN), [0, 1], [1, 12])
+  const zoomScale = zoomScaleAt(frame)
+  const previousZoomScale = zoomScaleAt(Math.max(0, frame - 1))
+  const zoomVelocity = Math.max(0, zoomScale - previousZoomScale)
+  const zoomTrail = interpolate(zoomVelocity, [0, 0.55], [0, 1], clamp)
+  const scaleLag = Math.min(0.92, zoomVelocity * 2.4)
+  const carryFade = 1 - ease(frame, TRACKER_DURATION_FRAMES - 1, TRACKER_TO_INTRO_OVERLAP_FRAMES, EASE_OUT)
   const typewriterText = 'Traditional financial trackers use simple and repeated algorithms'
-  const visibleChars = Math.max(1, Math.floor(interpolate(frame, [0, 68], [1, typewriterText.length], clamp)))
+  const visibleChars = Math.floor(interpolate(frame, [0, 68], [0, typewriterText.length], clamp))
   const firstLineExit = ease(frame, 84, 16, EASE_IN)
   const firstLineOpacity = 1 - firstLineExit
   const firstLineY = interpolate(firstLineExit, [0, 1], [0, -18])
   const secondWords = ['Nothing', 'is', 'specific', 'and', 'personalized']
+  const renderTrackerLayer = (scale: number, opacityValue = 1, blur = 0) => (
+    <AbsoluteFill
+      style={{
+        opacity: carryFade * opacityValue,
+        transform: `scale(${scale})`,
+        transformOrigin: '50% 50%',
+        filter: blur > 0 ? `blur(${blur}px)` : undefined,
+        willChange: 'transform, opacity, filter',
+      }}
+    >
+      <FocusSceneScale scale={TRACKER_SCENE_SCALE}>
+        <TrackerVisuals frame={frame} />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: '0 180px',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              width: 1180,
+              fontSize: 62,
+              lineHeight: 1.12,
+              fontWeight: 780,
+              opacity: firstLineOpacity,
+              transform: `translateY(${firstLineY}px)`,
+              ...darkText(frame),
+            }}
+          >
+            {typewriterText.slice(0, visibleChars)}
+          </div>
+
+          <div
+            style={{
+              position: 'absolute',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0 20px',
+              width: 1120,
+              color: COLORS.ink,
+              fontSize: 78,
+              lineHeight: 1.05,
+              fontWeight: 800,
+            }}
+          >
+            {secondWords.map((word, index) => {
+              const wordProgress = ease(frame, 112 + index * 4, 10)
+              return (
+                <span
+                  key={word}
+                  style={{
+                    display: 'inline-block',
+                    opacity: wordProgress,
+                    transform: `translateX(${interpolate(wordProgress, [0, 1], [78, 0])}px)`,
+                    ...darkText(frame),
+                  }}
+                >
+                  {word}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      </FocusSceneScale>
+    </AbsoluteFill>
+  )
 
   return (
     <AbsoluteFill
@@ -668,76 +776,13 @@ function TrackerScene(_: { duration: number }) {
     >
       <Canvas>
         <Header frame={frame} />
-        <AbsoluteFill
-          style={{
-            transform: `scale(${zoomScale})`,
-            transformOrigin: '50% 50%',
-            willChange: 'transform',
-          }}
-        >
-          <FocusSceneScale scale={TRACKER_SCENE_SCALE}>
-            <TrackerVisuals frame={frame} />
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                padding: '0 180px',
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  width: 1180,
-                  fontSize: 62,
-                  lineHeight: 1.12,
-                  fontWeight: 780,
-                  opacity: firstLineOpacity,
-                  transform: `translateY(${firstLineY}px)`,
-                  ...darkText(frame),
-                }}
-              >
-                {typewriterText.slice(0, visibleChars)}
-              </div>
-
-              <div
-                style={{
-                  position: 'absolute',
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0 20px',
-                  width: 1120,
-                  color: COLORS.ink,
-                  fontSize: 78,
-                  lineHeight: 1.05,
-                  fontWeight: 800,
-                }}
-              >
-                {secondWords.map((word, index) => {
-                  const wordProgress = ease(frame, 112 + index * 4, 10)
-                  return (
-                    <span
-                      key={word}
-                      style={{
-                        display: 'inline-block',
-                        opacity: wordProgress,
-                        transform: `translateX(${interpolate(wordProgress, [0, 1], [78, 0])}px)`,
-                        ...darkText(frame),
-                      }}
-                    >
-                      {word}
-                    </span>
-                  )
-                })}
-              </div>
-            </div>
-          </FocusSceneScale>
-        </AbsoluteFill>
+        {zoomTrail > 0.02 && (
+          <>
+            {renderTrackerLayer(Math.max(1, zoomScale - scaleLag * 1.2), 0.11 * zoomTrail, 2.4)}
+            {renderTrackerLayer(Math.max(1, zoomScale - scaleLag * 0.56), 0.18 * zoomTrail, 1.2)}
+          </>
+        )}
+        {renderTrackerLayer(zoomScale)}
       </Canvas>
     </AbsoluteFill>
   )
@@ -820,82 +865,120 @@ function IntroScene({ duration, appName }: { duration: number; appName: string }
   const logoOpacity = interpolate(logoPop, [0, 0.16], [0, 1], clamp)
   const textLeft = 150 + interpolate(textSettle, [0, 1], [235, 0])
   const textClipWidth = Math.max(0, Math.min(820, logoLeft + logoSize * 0.06 - textLeft))
-
-  return (
-    <AbsoluteFill>
-      <Canvas>
-        <Header frame={frame} />
-        <FocusSceneScale>
+  const introSettle = ease(frame, 0, TRACKER_TO_INTRO_OVERLAP_FRAMES)
+  const previousIntroSettle = ease(Math.max(0, frame - 1), 0, TRACKER_TO_INTRO_OVERLAP_FRAMES)
+  const introScale = interpolate(introSettle, [0, 1], [1.18, 1])
+  const previousIntroScale = interpolate(previousIntroSettle, [0, 1], [1.18, 1])
+  const introVelocity = Math.max(0, previousIntroScale - introScale)
+  const introTrail = interpolate(introVelocity, [0, 0.022], [0, 1], clamp)
+  const introScaleLag = Math.min(0.12, introVelocity * 4.8)
+  const introOpacity = ease(frame, 4, 12)
+  const renderIntroLayer = (scale: number, opacityValue = 1, blur = 0) => (
+    <AbsoluteFill
+      style={{
+        opacity: introOpacity * opacityValue,
+        transform: `scale(${scale})`,
+        transformOrigin: '50% 50%',
+        filter: blur > 0 ? `blur(${blur}px)` : undefined,
+        willChange: 'transform, opacity, filter',
+      }}
+    >
+      <Header frame={frame} />
+      <FocusSceneScale>
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            width: groupWidth,
+            height: groupHeight,
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
           <div
             style={{
               position: 'absolute',
-              left: '50%',
-              top: '50%',
-              width: groupWidth,
-              height: groupHeight,
-              transform: 'translate(-50%, -50%)',
+              left: textLeft,
+              top: textTop,
+              zIndex: 1,
+              width: textClipWidth,
+              height: textSize * 1.14,
+              overflow: 'hidden',
             }}
           >
             <div
               style={{
                 position: 'absolute',
-                left: textLeft,
-                top: textTop,
-                zIndex: 1,
-                width: textClipWidth,
+                left: 0,
+                top: 0,
+                width: 820,
                 height: textSize * 1.14,
-                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 28,
+                color: COLORS.ink,
+                fontSize: textSize,
+                lineHeight: 1,
+                fontWeight: 820,
+                whiteSpace: 'nowrap',
               }}
             >
-              <div
+              <span
                 style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  width: 820,
-                  height: textSize * 1.14,
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: 28,
-                  color: COLORS.ink,
-                  fontSize: textSize,
-                  lineHeight: 1,
-                  fontWeight: 820,
-                  whiteSpace: 'nowrap',
+                  display: 'inline-block',
+                  opacity: meet,
+                  flexShrink: 0,
+                  transform: `translateY(${interpolate(meet, [0, 1], [16, 0])}px)`,
+                  ...darkText(frame),
                 }}
               >
-                <span
-                  style={{
-                    display: 'inline-block',
-                    opacity: meet,
-                    flexShrink: 0,
-                    transform: `translateY(${interpolate(meet, [0, 1], [16, 0])}px)`,
-                    ...darkText(frame),
-                  }}
-                >
-                  Meet
-                </span>
-                <span style={{ display: 'inline-block', minWidth: 410, flexShrink: 0, ...darkText(frame) }}>
-                  {appName.slice(0, visibleLetters)}
-                </span>
-              </div>
-            </div>
-
-            <div
-              style={{
-                position: 'absolute',
-                left: logoLeft,
-                top: logoTop,
-                zIndex: 3,
-                width: logoSize,
-                height: logoSize,
-                transform: `translateY(${logoY}px) scale(${logoScale})`,
-              }}
-            >
-              <SarathyAppIcon size={logoSize} opacityValue={logoOpacity} />
+                Meet
+              </span>
+              <span
+                style={{
+                  display: 'inline-block',
+                  minWidth: 410,
+                  flexShrink: 0,
+                  fontFamily: BRAND_FONT,
+                  fontStyle: 'italic',
+                  fontWeight: 700,
+                  letterSpacing: '-0.07em',
+                  ...darkText(frame),
+                }}
+              >
+                {appName.slice(0, visibleLetters)}
+              </span>
             </div>
           </div>
-        </FocusSceneScale>
+
+          <div
+            style={{
+              position: 'absolute',
+              left: logoLeft,
+              top: logoTop,
+              zIndex: 3,
+              width: logoSize,
+              height: logoSize,
+              transform: `translateY(${logoY}px) scale(${logoScale})`,
+            }}
+          >
+            <SarathyAppIcon size={logoSize} opacityValue={logoOpacity} />
+          </div>
+        </div>
+      </FocusSceneScale>
+    </AbsoluteFill>
+  )
+
+  return (
+    <AbsoluteFill>
+      <Canvas>
+        {introTrail > 0.02 && (
+          <>
+            {renderIntroLayer(introScale + introScaleLag * 1.2, 0.1 * introTrail, 2.2)}
+            {renderIntroLayer(introScale + introScaleLag * 0.55, 0.16 * introTrail, 1.1)}
+          </>
+        )}
+        {renderIntroLayer(introScale)}
       </Canvas>
     </AbsoluteFill>
   )
@@ -1045,6 +1128,7 @@ function DropWord({
   const p = ease(frame, index * 4, 13)
   const lineHeight = size * 1.22
   const isRevealing = p < 0.999
+  const isBrand = text === 'Sarathy'
 
   return (
     <span
@@ -1060,7 +1144,10 @@ function DropWord({
           display: 'inline-block',
           fontSize: size,
           lineHeight: `${lineHeight}px`,
-          fontWeight: 820,
+          fontFamily: isBrand ? BRAND_FONT : undefined,
+          fontStyle: isBrand ? 'italic' : undefined,
+          fontWeight: isBrand ? 700 : 820,
+          letterSpacing: isBrand ? '-0.07em' : undefined,
           whiteSpace: 'nowrap',
           opacity: p,
           transform: `translateY(${interpolate(p, [0, 1], [-lineHeight, 0])}px)`,
@@ -1225,7 +1312,7 @@ const aiPhrases = [
 function HorizontalRollingPhrase({
   frame,
   start = 54,
-  phraseWidth = 1520,
+  phraseWidth = 1840,
   fontSize = 88,
 }: {
   frame: number
@@ -1246,24 +1333,26 @@ function HorizontalRollingPhrase({
         easing: HORIZONTAL_ROLL_EASE,
       })
     : 0
-  const enter = ease(frame, start, 14)
+  const phraseIn = ease(frame, start, 14)
   const currentX = interpolate(slide, [0, 1], [0, phraseWidth])
   const nextX = interpolate(slide, [0, 1], [-phraseWidth, 0])
   const currentOpacity = interpolate(slide, [0, 0.82, 1], [1, 0.8, 0], clamp)
   const nextOpacity = interpolate(slide, [0, 0.18, 1], [0, 0.2, 1], clamp)
 
-  const phraseStyle: CSSProperties = {
+  const rowStyle: CSSProperties = {
     position: 'absolute',
     left: 0,
     top: 0,
     width: phraseWidth,
+    display: 'flex',
+    justifyContent: 'center',
+    gap: 24,
     fontFamily: FEATURE_FONT,
     fontSize,
     lineHeight: '1.16',
     fontWeight: 840,
     whiteSpace: 'nowrap',
     willChange: 'transform, opacity',
-    ...orangeText(frame),
   }
 
   return (
@@ -1274,27 +1363,26 @@ function HorizontalRollingPhrase({
         height: 150,
         overflowX: 'hidden',
         overflowY: 'visible',
-        opacity: enter,
       }}
     >
       <div
         style={{
-          ...phraseStyle,
+          ...rowStyle,
           transform: `translate3d(${currentX}px, 0, 0)`,
           opacity: currentOpacity,
         }}
       >
-        {aiPhrases[activeIndex]}
+        <span style={{ opacity: phraseIn, display: 'inline-block', ...orangeText(frame) }}>{aiPhrases[activeIndex]}</span>
       </div>
       {canAdvance && (
         <div
           style={{
-            ...phraseStyle,
+            ...rowStyle,
             transform: `translate3d(${nextX}px, 0, 0)`,
             opacity: nextOpacity,
           }}
         >
-          {aiPhrases[nextIndex]}
+          <span style={{ opacity: phraseIn, display: 'inline-block', ...orangeText(frame) }}>{aiPhrases[nextIndex]}</span>
         </div>
       )}
     </div>
@@ -1303,8 +1391,7 @@ function HorizontalRollingPhrase({
 
 function CloseScene({ duration }: { duration: number }) {
   const frame = useCurrentFrame()
-  const headlineWords = ['Powered', 'by', 'advanced', 'AI']
-  const that = ease(frame, 38, 14)
+  const headlineWords = ['Powered', 'by', 'advanced', 'AI', 'that']
 
   return (
     <AbsoluteFill>
@@ -1346,7 +1433,7 @@ function CloseScene({ duration }: { duration: number }) {
                       opacity: wordIn,
                       transform: `translateY(${interpolate(wordIn, [0, 1], [18, 0])}px)`,
                       display: 'inline-block',
-                      ...(index >= 2 ? orangeText(frame) : darkText(frame)),
+                      ...(index === 2 || index === 3 ? aiAccentText(frame) : darkText(frame)),
                     }}
                   >
                     {word}
@@ -1357,26 +1444,11 @@ function CloseScene({ duration }: { duration: number }) {
             <div
               style={{
                 height: 150,
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'center',
-                gap: 24,
+                display: 'grid',
+                justifyItems: 'center',
               }}
             >
-              <div
-                style={{
-                  fontSize: 88,
-                  lineHeight: 1.16,
-                  fontWeight: 840,
-                  opacity: that,
-                  transform: `translateY(${interpolate(that, [0, 1], [18, 0])}px)`,
-                  display: 'inline-block',
-                  ...darkText(frame),
-                }}
-              >
-                that
-              </div>
-              <HorizontalRollingPhrase frame={frame} start={54} phraseWidth={1520} fontSize={88} />
+              <HorizontalRollingPhrase frame={frame} start={54} phraseWidth={1840} fontSize={88} />
             </div>
           </div>
         </div>
@@ -1387,7 +1459,10 @@ function CloseScene({ duration }: { duration: number }) {
 
 const chatPrompt = 'Hey, could you give me a summary of my spending for the last seven days?'
 const chatResponse =
-  "Hey Lucas, here's your spending for the last seven days. You spent S$184.70 total, led by food at S$76, transport at S$32, and subscriptions at S$21. You are still S$58 under your weekly plan."
+  "Hey Lucas, here's your last seven days. You spent S$184.70 total: groceries S$58.40, dining S$43.80, transport S$32.50, shopping S$29.00, and subscriptions S$21.00. Your S$243.00 weekly plan has S$58.30 left."
+const PRODUCT_CHAT_WIDTH = 1600
+const PRODUCT_CHAT_HEIGHT = 1094
+const PRODUCT_CHAT_INPUT_FOCUS_Y = PRODUCT_CHAT_HEIGHT - 74
 
 function ChatSparkBadge({ size = 44, iconSize = 22 }: { size?: number; iconSize?: number }) {
   return (
@@ -1431,21 +1506,74 @@ function TypingDots({ frame }: { frame: number }) {
   )
 }
 
+function BrandWord({
+  children = 'Sarathy',
+  style,
+}: {
+  children?: ReactNode
+  style?: CSSProperties
+}) {
+  return (
+    <span
+      style={{
+        fontFamily: BRAND_FONT,
+        fontStyle: 'italic',
+        fontWeight: 700,
+        letterSpacing: '-0.07em',
+        ...style,
+      }}
+    >
+      {children}
+    </span>
+  )
+}
+
+function BrandInlineText({ text }: { text: string }) {
+  const parts = text.split('Sarathy')
+
+  if (parts.length === 1) {
+    return <>{text}</>
+  }
+
+  return (
+    <>
+      {parts.map((part, index) => (
+        <Fragment key={`${part}-${index}`}>
+          {part}
+          {index < parts.length - 1 && (
+            <BrandWord
+              style={{
+                letterSpacing: '-0.045em',
+              }}
+            />
+          )}
+        </Fragment>
+      ))}
+    </>
+  )
+}
+
 function ProductChatFrame({
   frame,
   promptText = '',
+  promptPanX = 0,
+  showPromptCaret = false,
   showUser = false,
   showTyping = false,
   responseText = '',
   responseProgress = 0,
+  sendPulse = 0,
   compact = false,
 }: {
   frame: number
   promptText?: string
+  promptPanX?: number
+  showPromptCaret?: boolean
   showUser?: boolean
   showTyping?: boolean
   responseText?: string
   responseProgress?: number
+  sendPulse?: number
   compact?: boolean
 }) {
   const chips = [
@@ -1455,28 +1583,42 @@ function ProductChatFrame({
     'What changed my safe-to-spend?',
   ]
   const responseChars = Math.floor(responseText.length * responseProgress)
-  const statsIn = ease(responseProgress * 30, 20, 10)
-  const surfaceWidth = compact ? 1540 : 1600
-  const surfaceHeight = compact ? 900 : 930
+  const surfaceWidth = compact ? 1540 : PRODUCT_CHAT_WIDTH
+  const surfaceHeight = compact ? 1054 : PRODUCT_CHAT_HEIGHT
   const headerHeight = compact ? 118 : 126
   const signalHeight = compact ? 104 : 108
+  const inputPanelHeight = 204
 
   return (
     <div
       style={{
         width: surfaceWidth,
         height: surfaceHeight,
+        position: 'relative',
         borderRadius: compact ? 42 : 38,
         overflow: 'hidden',
         background: '#F8F4EF',
         border: '1px solid rgba(237,231,223,0.9)',
         boxShadow: compact
-          ? '0 60px 140px rgba(30,10,46,0.24)'
-          : '0 44px 120px rgba(30,10,46,0.20)',
+          ? '-34px 46px 118px rgba(36,10,0,0.17), -10px 16px 42px rgba(36,10,0,0.09), inset 1px 1px 0 rgba(255,255,255,0.72)'
+          : '-30px 40px 108px rgba(36,10,0,0.15), -8px 14px 36px rgba(36,10,0,0.08), inset 1px 1px 0 rgba(255,255,255,0.72)',
         color: '#1C0A00',
         fontFamily: FONT,
       }}
     >
+      <div
+        style={{
+          position: 'absolute',
+          top: -130,
+          right: -150,
+          width: 620,
+          height: 360,
+          borderRadius: '50%',
+          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.46) 0%, rgba(255,244,225,0.18) 42%, rgba(255,244,225,0) 72%)',
+          pointerEvents: 'none',
+          zIndex: 4,
+        }}
+      />
       <div
         style={{
           height: headerHeight,
@@ -1489,7 +1631,9 @@ function ProductChatFrame({
         }}
       >
         <div>
-          <div style={{ fontSize: compact ? 42 : 46, fontWeight: 850, lineHeight: 1 }}>Sarathy</div>
+          <div style={{ fontSize: compact ? 42 : 46, lineHeight: 1 }}>
+            <BrandWord />
+          </div>
           <div style={{ marginTop: 12, fontSize: compact ? 22 : 24, color: '#7A6254' }}>Hype friend for Lucas</div>
         </div>
         <div
@@ -1543,7 +1687,7 @@ function ProductChatFrame({
       <div
         style={{
           position: 'relative',
-          height: surfaceHeight - headerHeight - signalHeight - 180,
+          height: surfaceHeight - headerHeight - signalHeight - inputPanelHeight,
           padding: compact ? '34px 58px' : '40px 60px',
         }}
       >
@@ -1619,35 +1763,6 @@ function ProductChatFrame({
               }}
             >
               <div>{responseText.slice(0, responseChars)}</div>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 14,
-                  marginTop: 22,
-                  opacity: statsIn,
-                  transform: `translateY(${interpolate(statsIn, [0, 1], [12, 0])}px)`,
-                }}
-              >
-                {[
-                  ['Total', 'S$184.70'],
-                  ['Top category', 'Food S$76'],
-                  ['Plan', 'S$58 under'],
-                ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    style={{
-                      borderRadius: 18,
-                      border: '1px solid rgba(249,115,22,0.18)',
-                      background: '#FFFFFF',
-                      padding: '16px 18px',
-                      minWidth: 168,
-                    }}
-                  >
-                    <div style={{ fontSize: 16, color: '#7A6254', fontWeight: 700 }}>{label}</div>
-                    <div style={{ marginTop: 5, fontSize: 24, fontWeight: 840 }}>{value}</div>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         )}
@@ -1655,8 +1770,8 @@ function ProductChatFrame({
 
       <div
         style={{
-          height: 180,
-          padding: '24px 30px 28px',
+          height: inputPanelHeight,
+          padding: compact ? '24px 30px 34px' : '24px 30px 38px',
           background: '#F8F4EF',
           borderTop: '1px solid #EDE7DF',
         }}
@@ -1698,7 +1813,28 @@ function ProductChatFrame({
               overflow: 'hidden',
             }}
           >
-            {promptText || 'Ask Sarathy anything...'}
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                transform: promptText ? `translateX(${promptPanX}px)` : undefined,
+                willChange: promptText ? 'transform' : undefined,
+              }}
+            >
+              {promptText || <BrandInlineText text="Ask Sarathy anything..." />}
+              {showPromptCaret && promptText && (
+                <span
+                  style={{
+                    width: 4,
+                    height: compact ? 27 : 31,
+                    marginLeft: 8,
+                    borderRadius: 999,
+                    background: '#111111',
+                    opacity: interpolate(Math.sin(frame * 0.42), [-1, 1], [0.34, 1]),
+                  }}
+                />
+              )}
+            </span>
           </div>
           <div
             style={{
@@ -1710,6 +1846,9 @@ function ProductChatFrame({
               display: 'grid',
               placeItems: 'center',
               flex: '0 0 auto',
+              transform: `scale(${1 + sendPulse * 0.22})`,
+              boxShadow: sendPulse > 0 ? '0 18px 48px rgba(249,115,22,0.32)' : undefined,
+              willChange: 'transform',
             }}
           >
             <SendHorizontal size={34} strokeWidth={2.4} />
@@ -1720,63 +1859,1037 @@ function ProductChatFrame({
   )
 }
 
-function ChatbotScene() {
-  const frame = useCurrentFrame()
-  const move = ease(frame, 0, 58)
-  const overviewY = interpolate(move, [0, 1], [130, -310])
-  const overviewScale = interpolate(move, [0, 1], [1.03, 0.78])
-  const overviewTilt = interpolate(move, [0, 1], [12, 45])
-  const overviewOpacity = 1 - ease(frame, 58, 8, EASE_IN)
-  const frontStart = 66
-  const frontIn = ease(frame, frontStart, 12)
-  const typedChars = Math.floor(interpolate(frame, [84, 138], [0, chatPrompt.length], clamp))
-  const typedPrompt = chatPrompt.slice(0, typedChars)
-  const hasSent = frame >= 142
-  const showTyping = frame >= 154 && frame < 174
-  const responseProgress = interpolate(frame, [174, 232], [0, 1], clamp)
+function ProductChatLayer({
+  showCursor,
+  cursorClickStart,
+  ...frameProps
+}: Parameters<typeof ProductChatFrame>[0] & {
+  showCursor?: boolean
+  cursorClickStart?: number
+}) {
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: PRODUCT_CHAT_WIDTH,
+        height: PRODUCT_CHAT_HEIGHT,
+        overflow: 'visible',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          left: -110,
+          right: 70,
+          bottom: -126,
+          height: 240,
+          borderRadius: '50%',
+          background: 'radial-gradient(ellipse at center, rgba(50,14,0,0.32) 0%, rgba(50,14,0,0.16) 48%, rgba(50,14,0,0) 76%)',
+          filter: 'blur(30px)',
+          transform: 'translate3d(-56px, 42px, -140px)',
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: -4,
+          right: 78,
+          bottom: -70,
+          height: 112,
+          borderRadius: '0 0 72px 72px',
+          background: 'linear-gradient(180deg, rgba(168,70,20,0.34), rgba(66,20,2,0.34))',
+          boxShadow: '-48px 54px 132px rgba(42,12,0,0.22)',
+          filter: 'blur(14px)',
+          transform: 'translate3d(-34px, 20px, -74px) rotateX(-14deg)',
+          transformOrigin: '50% 0%',
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: -48,
+          top: 46,
+          bottom: 8,
+          width: 70,
+          borderRadius: '48px 0 0 48px',
+          background: 'linear-gradient(90deg, rgba(54,16,0,0.28), rgba(136,50,12,0.12), rgba(136,50,12,0))',
+          filter: 'blur(13px)',
+          transform: 'translate3d(-22px, 18px, -58px) rotateY(16deg)',
+          transformOrigin: '100% 50%',
+          pointerEvents: 'none',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          right: -34,
+          top: 46,
+          bottom: 18,
+          width: 52,
+          borderRadius: '0 44px 44px 0',
+          background: 'linear-gradient(90deg, rgba(255,185,100,0.06), rgba(70,22,4,0.12))',
+          filter: 'blur(14px)',
+          transform: 'translate3d(12px, 10px, -54px) rotateY(-12deg)',
+          transformOrigin: '0% 50%',
+          pointerEvents: 'none',
+        }}
+      />
+      <ProductChatFrame {...frameProps} />
+      {showCursor && <ProductTriangleCursor frame={frameProps.frame} clickStart={cursorClickStart ?? 158} />}
+    </div>
+  )
+}
+
+function ProductTriangleCursor({ frame, clickStart }: { frame: number; clickStart: number }) {
+  const move = ease(frame, 146, 12)
+  const press = ease(frame, clickStart, 5, EASE_IN)
+  const release = ease(frame, clickStart + 5, 8)
+  const x = interpolate(move, [0, 1], [1220, 1522])
+  const y = interpolate(move, [0, 1], [880, PRODUCT_CHAT_INPUT_FOCUS_Y - 18])
+  const cursorScale = 1 - press * 0.16 + release * 0.16
 
   return (
-    <AbsoluteFill style={{ ...base, overflow: 'hidden' }}>
-      {frame < frontStart && (
-        <AbsoluteFill
+    <svg
+      width="82"
+      height="82"
+      viewBox="0 0 82 82"
+      style={{
+        position: 'absolute',
+        left: x,
+        top: y,
+        zIndex: 20,
+        transform: `scale(${cursorScale})`,
+        transformOrigin: '12px 12px',
+        filter: 'drop-shadow(0 10px 14px rgba(0,0,0,0.26))',
+        pointerEvents: 'none',
+      }}
+    >
+      <path d="M12 6 L72 47 L43 52 L32 76 Z" fill="#111111" stroke="#FFFFFF" strokeWidth="4" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function PromptTypingCloseup({
+  frame,
+  promptText,
+  typedChars,
+}: {
+  frame: number
+  promptText: string
+  typedChars: number
+}) {
+  const enter = ease(frame, 64, 10)
+  const typedPrompt = promptText.slice(0, typedChars)
+  const followY = interpolate(typedChars, [0, 34, promptText.length], [0, 0, -86], clamp)
+  const caretOpacity = interpolate(Math.sin(frame * 0.42), [-1, 1], [0.35, 1])
+
+  return (
+    <AbsoluteFill
+      style={{
+        display: 'grid',
+        placeItems: 'center',
+        opacity: enter,
+        transform: `scale(${interpolate(enter, [0, 1], [1.08, 1])})`,
+      }}
+    >
+      <div
+        style={{
+          width: 1580,
+          height: 760,
+          borderRadius: 42,
+          background: '#F8F4EF',
+          border: '1px solid rgba(237,231,223,0.92)',
+          boxShadow: '0 48px 130px rgba(30,10,46,0.20)',
+          padding: 34,
+          display: 'grid',
+          gridTemplateRows: '1fr 104px',
+          gap: 26,
+          color: '#1C0A00',
+          fontFamily: FONT,
+        }}
+      >
+        <div
           style={{
-            display: 'grid',
-            placeItems: 'center',
-            perspective: 1600,
-            opacity: overviewOpacity,
+            borderRadius: 34,
+            border: '1px solid #EDE7DF',
+            background: '#FFFFFF',
+            padding: '62px 72px',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
           }}
         >
           <div
             style={{
-              transform: `translateY(${overviewY}px) rotateX(${overviewTilt}deg) scale(${overviewScale})`,
-              transformOrigin: '50% 100%',
-              transformStyle: 'preserve-3d',
+              transform: `translateY(${followY}px)`,
+              fontSize: 86,
+              lineHeight: 1.12,
+              fontWeight: 760,
+              letterSpacing: 0,
+              maxWidth: 1320,
+              whiteSpace: 'normal',
+              overflowWrap: 'break-word',
             }}
           >
-            <ProductChatFrame frame={frame} compact />
+            {typedPrompt}
+            <span
+              style={{
+                display: 'inline-block',
+                width: 7,
+                height: 86,
+                marginLeft: 10,
+                transform: 'translateY(10px)',
+                borderRadius: 999,
+                background: '#111111',
+                opacity: caretOpacity,
+              }}
+            />
           </div>
-        </AbsoluteFill>
-      )}
+        </div>
 
-      {frame >= frontStart && (
-        <AbsoluteFill
+        <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
+          <div
+            style={{
+              flex: 1,
+              height: 104,
+              borderRadius: 30,
+              border: '1px solid #EDE7DF',
+              background: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 34px',
+              fontSize: 32,
+              color: typedPrompt ? '#1C0A00' : '#9CA3AF',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              boxShadow: '0 5px 20px rgba(30,10,46,0.06)',
+            }}
+          >
+            {typedPrompt || <BrandInlineText text="Ask Sarathy anything..." />}
+          </div>
+          <div
+            style={{
+              width: 104,
+              height: 104,
+              borderRadius: 30,
+              background: typedPrompt ? '#F97316' : '#FDE8D0',
+              color: typedPrompt ? '#FFFFFF' : '#F97316',
+              display: 'grid',
+              placeItems: 'center',
+            }}
+          >
+            <SendHorizontal size={48} strokeWidth={2.4} />
+          </div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  )
+}
+
+function TriangleCursor({ frame, clickStart }: { frame: number; clickStart: number }) {
+  const move = ease(frame, 146, 16)
+  const press = ease(frame, clickStart, 5, EASE_IN)
+  const release = ease(frame, clickStart + 5, 8)
+  const cursorX = interpolate(move, [0, 1], [-330, 18])
+  const cursorY = interpolate(move, [0, 1], [-170, -8])
+  const cursorScale = 1 - press * 0.14 + release * 0.14
+
+  return (
+    <svg
+      width="118"
+      height="118"
+      viewBox="0 0 118 118"
+      style={{
+        position: 'absolute',
+        left: '50%',
+        top: '50%',
+        transform: `translate(${cursorX}px, ${cursorY}px) scale(${cursorScale})`,
+        transformOrigin: '18px 18px',
+        filter: 'drop-shadow(0 12px 18px rgba(0,0,0,0.22))',
+      }}
+    >
+      <path d="M18 8 L96 64 L61 69 L47 105 Z" fill="#111111" stroke="#FFFFFF" strokeWidth="5" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function SendButtonCloseup({
+  frame,
+  clickStart,
+}: {
+  frame: number
+  clickStart: number
+}) {
+  const enter = ease(frame, 142, 7)
+  const press = ease(frame, clickStart, 5, EASE_IN)
+  const release = ease(frame, clickStart + 5, 8)
+  const buttonScale = 1 + press * 0.18 - release * 0.18
+  const iconShift = interpolate(press - release, [0, 1], [0, -7], clamp)
+
+  return (
+    <AbsoluteFill
+      style={{
+        display: 'grid',
+        placeItems: 'center',
+        opacity: enter,
+      }}
+    >
+      <div
+        style={{
+          width: 1180,
+          height: 360,
+          borderRadius: 48,
+          background: '#F8F4EF',
+          border: '1px solid rgba(237,231,223,0.92)',
+          boxShadow: '0 48px 130px rgba(30,10,46,0.22)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          padding: 42,
+          position: 'relative',
+          overflow: 'visible',
+        }}
+      >
+        <div
           style={{
+            position: 'absolute',
+            left: 42,
+            right: 230,
+            height: 132,
+            borderRadius: 38,
+            border: '1px solid #EDE7DF',
+            background: '#FFFFFF',
+            boxShadow: '0 5px 20px rgba(30,10,46,0.06)',
+          }}
+        />
+        <div
+          style={{
+            width: 170,
+            height: 170,
+            borderRadius: 44,
+            background: '#F97316',
+            color: '#FFFFFF',
             display: 'grid',
             placeItems: 'center',
-            opacity: frontIn,
-            transform: `translateY(${interpolate(frontIn, [0, 1], [34, 0])}px)`,
+            transform: `scale(${buttonScale})`,
+            boxShadow: '0 28px 70px rgba(249,115,22,0.34)',
+            willChange: 'transform',
           }}
         >
-          <ProductChatFrame
-            frame={frame}
-            promptText={hasSent ? '' : typedPrompt}
-            showUser={hasSent}
-            showTyping={showTyping}
-            responseText={chatResponse}
-            responseProgress={responseProgress}
+          <SendHorizontal
+            size={74}
+            strokeWidth={2.5}
+            style={{ transform: `translate(${iconShift}px, ${iconShift}px)` }}
           />
-        </AbsoluteFill>
-      )}
+        </div>
+        <TriangleCursor frame={frame} clickStart={clickStart} />
+      </div>
+    </AbsoluteFill>
+  )
+}
+
+function ResponseCloseup({
+  frame,
+  responseText,
+  responseProgress,
+}: {
+  frame: number
+  responseText: string
+  responseProgress: number
+}) {
+  const enter = ease(frame, 174, 10)
+  const responseChars = Math.floor(responseText.length * responseProgress)
+  const statsIn = ease(responseProgress * 30, 20, 10)
+
+  return (
+    <AbsoluteFill
+      style={{
+        display: 'grid',
+        placeItems: 'center',
+        opacity: enter,
+        transform: `translateY(${interpolate(enter, [0, 1], [28, 0])}px) scale(${interpolate(enter, [0, 1], [1.04, 1])})`,
+      }}
+    >
+      <div
+        style={{
+          width: 1560,
+          minHeight: 690,
+          borderRadius: 46,
+          background: '#F8F4EF',
+          border: '1px solid rgba(237,231,223,0.92)',
+          boxShadow: '0 48px 130px rgba(30,10,46,0.22)',
+          padding: 56,
+          display: 'flex',
+          gap: 28,
+          alignItems: 'flex-start',
+          color: '#1C0A00',
+          fontFamily: FONT,
+        }}
+      >
+        <ChatSparkBadge size={76} iconSize={36} />
+        <div
+          style={{
+            flex: 1,
+            borderRadius: '14px 42px 42px 42px',
+            background: '#FFF3E8',
+            padding: '44px 50px',
+            fontSize: 48,
+            lineHeight: 1.28,
+            fontWeight: 600,
+          }}
+        >
+          <div>{responseText.slice(0, responseChars)}</div>
+          <div
+            style={{
+              display: 'flex',
+              gap: 20,
+              marginTop: 34,
+              opacity: statsIn,
+              transform: `translateY(${interpolate(statsIn, [0, 1], [16, 0])}px)`,
+            }}
+          >
+            {[
+              ['Total', 'S$184.70'],
+              ['Top category', 'Groceries S$58.40'],
+              ['Plan', 'S$58.30 left'],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                style={{
+                  borderRadius: 22,
+                  border: '1px solid rgba(249,115,22,0.18)',
+                  background: '#FFFFFF',
+                  padding: '22px 24px',
+                  minWidth: 220,
+                }}
+              >
+                <div style={{ fontSize: 22, color: '#7A6254', fontWeight: 760 }}>{label}</div>
+                <div style={{ marginTop: 7, fontSize: 34, fontWeight: 850 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  )
+}
+
+function ChatbotScene() {
+  const frame = useCurrentFrame()
+  const overviewEnd = 64
+  const typeStart = 74
+  const typeEnd = 140
+  const sendFocusStart = 142
+  const clickStart = 158
+  const responseStart = 174
+  const fullWidth = PRODUCT_CHAT_WIDTH
+  const fullHeight = PRODUCT_CHAT_HEIGHT
+  const centerX = fullWidth / 2
+  const centerY = fullHeight / 2
+  const cameraFor = (focusX: number, focusY: number, scale: number) => ({
+    scale,
+    x: -(focusX - centerX) * scale,
+    y: -(focusY - centerY) * scale,
+  })
+  const snapAmountFor = (atFrame: number, start: number, duration: number) => {
+    const progress = interpolate(atFrame, [start, start + duration], [0, 1], clamp)
+    return Math.sin(progress * Math.PI)
+  }
+  const typedProgressAt = (atFrame: number) =>
+    interpolate(atFrame, [typeStart, typeEnd], [0, 1], clamp)
+  const typingFocusAt = (atFrame: number) =>
+    interpolate(typedProgressAt(atFrame), [0, 1], [300, 690], clamp)
+  const typedChars = Math.floor(typedProgressAt(frame) * chatPrompt.length)
+  const typedPrompt = chatPrompt.slice(0, typedChars)
+  const promptPanX = 0
+  const getCameraAt = (atFrame: number) => {
+    const move = ease(atFrame, 0, overviewEnd)
+    const focusX = typingFocusAt(atFrame)
+    const overviewCamera = {
+      x: 0,
+      y: interpolate(move, [0, 1], [930, -18]),
+      scale: interpolate(move, [0, 1], [0.92, 0.94]),
+    }
+    const overviewPitch = 30
+    const inputCamera = cameraFor(focusX, PRODUCT_CHAT_INPUT_FOCUS_Y, 2.35)
+    const sendCamera = cameraFor(PRODUCT_CHAT_WIDTH - 68, PRODUCT_CHAT_INPUT_FOCUS_Y, 2.65)
+    const responseCamera = cameraFor(665, 575, 1.55)
+    const inputSnap = ease(atFrame, overviewEnd, 12)
+    const sendSnap = ease(atFrame, sendFocusStart, 10)
+    const responseSnap = ease(atFrame, responseStart - 2, 12)
+    const cameraAfterInput = {
+      x: interpolate(inputSnap, [0, 1], [overviewCamera.x, inputCamera.x]),
+      y: interpolate(inputSnap, [0, 1], [overviewCamera.y, inputCamera.y]),
+      scale: interpolate(inputSnap, [0, 1], [overviewCamera.scale, inputCamera.scale]),
+    }
+    const cameraAfterSend = {
+      x: interpolate(sendSnap, [0, 1], [cameraAfterInput.x, sendCamera.x]),
+      y: interpolate(sendSnap, [0, 1], [cameraAfterInput.y, sendCamera.y]),
+      scale: interpolate(sendSnap, [0, 1], [cameraAfterInput.scale, sendCamera.scale]),
+    }
+    const camera = {
+      x: interpolate(responseSnap, [0, 1], [cameraAfterSend.x, responseCamera.x]),
+      y: interpolate(responseSnap, [0, 1], [cameraAfterSend.y, responseCamera.y]),
+      scale: interpolate(responseSnap, [0, 1], [cameraAfterSend.scale, responseCamera.scale]),
+    }
+
+    return {
+      ...camera,
+      rotateX: interpolate(inputSnap, [0, 1], [overviewPitch, 0]),
+      rotateY: 0,
+      originY: interpolate(inputSnap, [0, 1], [100, 50]),
+    }
+  }
+  const camera = getCameraAt(frame)
+  const previousCamera = getCameraAt(Math.max(0, frame - 1))
+  const velocityX = camera.x - previousCamera.x
+  const velocityY = camera.y - previousCamera.y
+  const velocityLength = Math.max(1, Math.hypot(velocityX, velocityY))
+  const directionX = velocityX / velocityLength
+  const directionY = velocityY / velocityLength
+  const snapTrail = Math.max(
+    snapAmountFor(frame, 0, overviewEnd) * 0.25,
+    snapAmountFor(frame, overviewEnd, 12),
+    snapAmountFor(frame, sendFocusStart, 10),
+    snapAmountFor(frame, responseStart - 2, 12),
+  )
+  const trailDistance = Math.min(52, velocityLength * 0.2) * snapTrail
+  const press = ease(frame, clickStart, 5, EASE_IN)
+  const release = ease(frame, clickStart + 5, 8)
+  const sendPulse = Math.max(0, press - release)
+  const hasSent = frame >= clickStart + 8
+  const showTyping = frame >= clickStart + 10 && frame < responseStart + 6
+  const responseProgress = interpolate(frame, [responseStart + 6, 236], [0, 1], clamp)
+  const showCursor = frame >= sendFocusStart - 4 && frame < clickStart + 10
+  const frameProps = {
+    frame,
+    promptText: hasSent ? '' : typedPrompt,
+    promptPanX,
+    showPromptCaret: !hasSent && frame >= overviewEnd,
+    showUser: hasSent,
+    showTyping,
+    responseText: chatResponse,
+    responseProgress,
+    sendPulse,
+  }
+  const layerProps = {
+    ...frameProps,
+    showCursor,
+    cursorClickStart: clickStart,
+  }
+  const cameraOuterStyle = (x: number, y: number, blur = 0, opacity = 1): CSSProperties => ({
+    gridArea: '1 / 1',
+    opacity,
+    transform: `translate(${x}px, ${y}px)`,
+    filter: blur > 0 ? `blur(${blur}px)` : undefined,
+    willChange: 'transform, filter, opacity',
+  })
+  const tiltAspectCompensation = interpolate(camera.rotateX, [0, 30], [1, 1.155], clamp)
+  const cameraInnerStyle: CSSProperties = {
+    transform: `rotateX(${camera.rotateX}deg) rotateY(${camera.rotateY}deg) scale(${camera.scale}) scaleY(${tiltAspectCompensation})`,
+    transformOrigin: `50% ${camera.originY}%`,
+    transformStyle: 'preserve-3d',
+    willChange: 'transform',
+  }
+  const renderCameraLayer = (x: number, y: number, opacity = 1, blur = 0) => (
+    <div style={cameraOuterStyle(x, y, blur, opacity)}>
+      <div style={cameraInnerStyle}>
+        <ProductChatLayer {...layerProps} />
+      </div>
+    </div>
+  )
+
+  return (
+    <AbsoluteFill style={{ ...base, overflow: 'hidden' }}>
+      <AbsoluteFill
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          perspective: 1450,
+          perspectiveOrigin: '50% 56%',
+        }}
+      >
+        {trailDistance > 0.4 && (
+          <>
+            <div
+              style={cameraOuterStyle(
+                camera.x - directionX * trailDistance * 1.05,
+                camera.y - directionY * trailDistance * 1.05,
+                2.2,
+                0.12 * snapTrail,
+              )}
+            >
+              <div style={cameraInnerStyle}>
+                <ProductChatFrame {...frameProps} />
+              </div>
+            </div>
+            <div
+              style={cameraOuterStyle(
+                camera.x - directionX * trailDistance * 0.48,
+                camera.y - directionY * trailDistance * 0.48,
+                1.1,
+                0.18 * snapTrail,
+              )}
+            >
+              <div style={cameraInnerStyle}>
+                <ProductChatFrame {...frameProps} />
+              </div>
+            </div>
+          </>
+        )}
+        {renderCameraLayer(camera.x, camera.y)}
+      </AbsoluteFill>
+    </AbsoluteFill>
+  )
+}
+
+const moneyToolCards: Array<{
+  title: string
+  description: string
+  icon: LucideIcon
+  side: 'left' | 'right'
+  row: number
+}> = [
+  {
+    title: 'Money check',
+    description: 'Ask if a purchase fits today before it changes the plan.',
+    icon: ShieldCheck,
+    side: 'left',
+    row: 0,
+  },
+  {
+    title: 'Import transactions',
+    description: 'Bring statements or receipts into the app without rebuilding your budget by hand.',
+    icon: Download,
+    side: 'right',
+    row: 0,
+  },
+  {
+    title: 'Fixed costs',
+    description: 'Keep rent, transport, bills, and subscriptions protected before daily spending.',
+    icon: FileText,
+    side: 'left',
+    row: 1,
+  },
+  {
+    title: 'My data',
+    description: 'See the profile, logs, and context Sarathy uses for answers.',
+    icon: Database,
+    side: 'right',
+    row: 1,
+  },
+  {
+    title: 'Future you',
+    description: 'Test how today changes the next few months before committing.',
+    icon: CalendarClock,
+    side: 'left',
+    row: 2,
+  },
+  {
+    title: 'Money psychology',
+    description: 'Spot patterns behind overspending, avoidance, and running out early.',
+    icon: Brain,
+    side: 'right',
+    row: 2,
+  },
+]
+
+function MoneyToolCard({
+  card,
+  frame,
+  index,
+}: {
+  card: (typeof moneyToolCards)[number]
+  frame: number
+  index: number
+}) {
+  const { width } = useVideoConfig()
+  const Icon = card.icon
+  const cardWidth = 520
+  const cardHeight = 174
+  const leftX = 108
+  const rightX = width - cardWidth - 108
+  const finalX = card.side === 'left' ? leftX : rightX
+  const offscreenX = card.side === 'left' ? -cardWidth - 80 : width + 80
+  const finalY = 158 + card.row * 292
+  const start = 78 + index * 12
+  const p = ease(frame, start, 34, EASE_OUT)
+  const x = interpolate(p, [0, 1], [offscreenX, finalX], clamp)
+  const y = interpolate(p, [0, 1], [finalY + 82, finalY], clamp)
+  const opacityValue = interpolate(p, [0, 0.12, 1], [0, 1, 1], clamp)
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: x,
+        top: y,
+        width: cardWidth,
+        height: cardHeight,
+        borderRadius: 18,
+        background: 'rgba(255, 255, 255, 0.9)',
+        border: '1px solid rgba(255, 255, 255, 0.56)',
+        boxShadow: '0 24px 70px rgba(66, 24, 0, 0.18)',
+        opacity: opacityValue,
+        padding: '26px 30px',
+        display: 'grid',
+        gridTemplateColumns: '72px 1fr',
+        columnGap: 22,
+        alignItems: 'start',
+        transform: `scale(${interpolate(p, [0, 1], [0.96, 1], clamp)})`,
+        transformOrigin: card.side === 'left' ? '0% 50%' : '100% 50%',
+        willChange: 'left, top, transform, opacity',
+      }}
+    >
+      <div
+        style={{
+          width: 58,
+          height: 58,
+          borderRadius: 14,
+          background: 'rgba(255, 243, 232, 0.9)',
+          display: 'grid',
+          placeItems: 'center',
+          color: COLORS.orange,
+          marginTop: 2,
+        }}
+      >
+        <Icon size={30} strokeWidth={2.35} />
+      </div>
+      <div>
+        <div
+          style={{
+            fontFamily: FEATURE_FONT,
+            fontSize: 29,
+            fontWeight: 780,
+            lineHeight: 1.08,
+            color: COLORS.plum,
+            letterSpacing: 0,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {card.title}
+        </div>
+        <div
+          style={{
+            marginTop: 16,
+            fontFamily: FONT,
+            fontSize: 21,
+            fontWeight: 560,
+            lineHeight: 1.4,
+            color: '#806F63',
+            letterSpacing: 0,
+          }}
+        >
+          <BrandInlineText text={card.description} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MoneyToolsScene() {
+  const frame = useCurrentFrame()
+  const firstLine = 'Packed with multiple money managing tools.'
+  const secondLine = 'To easily manage all your finances.'
+  const typedChars = Math.floor(interpolate(frame, [0, 54], [0, firstLine.length], clamp))
+  const shrink = ease(frame, 58, 28, EASE_OUT)
+  const firstTextLeave = ease(frame, 82, 8, EASE_IN)
+  const secondTextEnter = ease(frame, 88, 12, EASE_OUT)
+  const textWidth = interpolate(shrink, [0, 1], [1260, 620], clamp)
+  const fontSize = interpolate(shrink, [0, 1], [82, 48], clamp)
+  const firstText = firstLine.slice(0, typedChars)
+  const centerY = interpolate(shrink, [0, 1], [500, 512], clamp)
+
+  return (
+    <AbsoluteFill
+      style={{
+        ...base,
+        overflow: 'hidden',
+      }}
+    >
+          {moneyToolCards.map((card, index) => (
+        <MoneyToolCard key={card.title} card={card} frame={frame} index={index} />
+      ))}
+
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: centerY,
+          width: textWidth,
+          transform: 'translate(-50%, -50%)',
+          textAlign: 'center',
+          fontFamily: FONT,
+          fontSize,
+          fontWeight: 900,
+          lineHeight: 1.06,
+          letterSpacing: 0,
+          color: COLORS.ink,
+          textShadow: '0 8px 26px rgba(45, 12, 0, 0.16)',
+          willChange: 'top, width, font-size',
+        }}
+      >
+        <div
+          style={{
+            opacity: 1 - firstTextLeave,
+            transform: `translateY(${interpolate(firstTextLeave, [0, 1], [0, -22], clamp)}px)`,
+            willChange: 'transform, opacity',
+          }}
+        >
+          {firstText}
+        </div>
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'grid',
+            placeItems: 'center',
+            opacity: secondTextEnter,
+            transform: `translateY(${interpolate(secondTextEnter, [0, 1], [24, 0], clamp)}px)`,
+            color: COLORS.orangeText,
+            textShadow: '0 6px 22px rgba(60, 16, 0, 0.32)',
+            willChange: 'transform, opacity',
+          }}
+        >
+          {secondLine}
+        </div>
+      </div>
+    </AbsoluteFill>
+  )
+}
+
+function CtaScene() {
+  const frame = useCurrentFrame()
+  const url = 'https://sarathyv2-web-production.up.railway.app/'
+  const titleEnter = ease(frame, 0, 20, EASE_OUT)
+  const urlChars = Math.floor(interpolate(frame, [18, 66], [0, url.length], clamp))
+  const urlReveal = ease(frame, 16, 20, EASE_OUT)
+  const glow = Math.sin(interpolate(frame, [0, CTA_SCENE_DURATION_FRAMES], [0, Math.PI], clamp))
+
+  return (
+    <AbsoluteFill
+      style={{
+        ...base,
+        display: 'grid',
+        placeItems: 'center',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          width: 1380,
+          maxWidth: '86%',
+          textAlign: 'center',
+          transform: `translateY(${interpolate(titleEnter, [0, 1], [18, 0], clamp)}px) scale(${interpolate(titleEnter, [0, 1], [0.985, 1], clamp)})`,
+          opacity: interpolate(titleEnter, [0, 1], [0.8, 1], clamp),
+          willChange: 'transform, opacity',
+        }}
+      >
+        <div
+          style={{
+            fontFamily: FONT,
+            fontSize: 86,
+            fontWeight: 900,
+            lineHeight: 1.04,
+            letterSpacing: 0,
+            color: COLORS.ink,
+            textShadow: '0 9px 28px rgba(45, 12, 0, 0.18)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'baseline',
+            gap: 18,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span>Try</span>
+          <BrandWord style={{ fontSize: 92, lineHeight: 0.9 }} />
+          <span>now at</span>
+        </div>
+        <div
+          style={{
+            margin: '38px auto 0',
+            width: 'fit-content',
+            maxWidth: '100%',
+            borderRadius: 30,
+            padding: '22px 34px',
+            background: 'rgba(255, 255, 255, 0.9)',
+            border: '1px solid rgba(255, 255, 255, 0.58)',
+            boxShadow: `0 24px ${interpolate(glow, [0, 1], [64, 82], clamp)}px rgba(45, 12, 0, 0.22)`,
+            opacity: urlReveal,
+            transform: `translateY(${interpolate(urlReveal, [0, 1], [16, 0], clamp)}px)`,
+            willChange: 'transform, opacity',
+          }}
+        >
+          <div
+            style={{
+              fontFamily: FEATURE_FONT,
+              fontSize: 38,
+              fontWeight: 820,
+              lineHeight: 1.1,
+              letterSpacing: 0,
+              color: COLORS.orange,
+              textShadow: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {url.slice(0, urlChars)}
+          </div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  )
+}
+
+function LogoFinalScene({ duration, appName }: { duration: number; appName: string }) {
+  const frame = useCurrentFrame()
+  const smoothInOut = Easing.bezier(0.45, 0, 0.2, 1)
+  const wordIn = ease(frame, 0, 18, EASE_OUT)
+  const gather = ease(frame, 22, 42, smoothInOut)
+  const sMorph = ease(frame, 58, 34, smoothInOut)
+  const backgroundReveal = ease(frame, 92, 16, EASE_OUT)
+  const iconSettle = spring({
+    frame: Math.max(0, frame - 92),
+    fps: TIMELINE_FPS,
+    config: { damping: 18, stiffness: 88, mass: 0.82 },
+  })
+  const finalBreath = Math.sin(interpolate(frame, [0, duration], [0, Math.PI], clamp))
+  const tailLetters = appName.slice(1).split('')
+  const baseFontSize = 198
+  const serifTailStartX = [-204, -72, 42, 160, 276, 394]
+  const markSize = interpolate(sMorph, [0, 1], [238, 254], clamp) * interpolate(iconSettle, [0, 1], [0.985, 1], clamp)
+  const markX = interpolate(gather, [0, 1], [-330, 0], clamp)
+  const markY = interpolate(wordIn, [0, 1], [28, 0], clamp)
+  const markScale = interpolate(gather, [0, 1], [0.96, 1], clamp) * interpolate(sMorph, [0, 1], [1, 1.03], clamp)
+  const markRed = Math.round(interpolate(sMorph, [0, 1], [0x35, 0xff], clamp))
+  const markGreen = Math.round(interpolate(sMorph, [0, 1], [0x37, 0xf7], clamp))
+  const markBlue = Math.round(interpolate(sMorph, [0, 1], [0x3b, 0xea], clamp))
+  const markColor = `rgb(${markRed}, ${markGreen}, ${markBlue})`
+  const backgroundOpacity = backgroundReveal
+  const accentOpacity = interpolate(backgroundReveal, [0.28, 1], [0, 1], clamp)
+
+  return (
+    <AbsoluteFill
+      style={{
+        ...base,
+        display: 'grid',
+        placeItems: 'center',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: 1120,
+          height: 420,
+          opacity: wordIn,
+        }}
+      >
+        <svg
+          width={markSize}
+          height={markSize}
+          viewBox="0 0 512 512"
+          role="img"
+          aria-label="Sarathy"
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: '50%',
+            display: 'block',
+            overflow: 'visible',
+            transform: `translate(-50%, -50%) translate(${markX}px, ${markY}px) scale(${markScale})`,
+            transformOrigin: '50% 50%',
+            filter: `drop-shadow(-22px 34px ${interpolate(finalBreath, [0, 1], [58, 72], clamp)}px rgba(45, 12, 0, ${0.24 * backgroundOpacity}))`,
+            willChange: 'transform, filter',
+            zIndex: 3,
+          }}
+        >
+          <defs>
+            <linearGradient id="finalSarathySAccent" x1="128" x2="386" y1="410" y2="284" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stopColor="#FFF7EA" />
+              <stop offset="0.2" stopColor="#FFE4C1" />
+              <stop offset="0.5" stopColor="#FF9C2E" />
+              <stop offset="1" stopColor="#F97316" />
+            </linearGradient>
+            <clipPath id="finalSarathySAccentClip">
+              <path d="M98 286C147 318 192 345 246 361C304 378 354 349 396 292L395 430H92Z" />
+            </clipPath>
+          </defs>
+          <rect width="512" height="512" rx="112" fill="#1E0A2E" opacity={backgroundOpacity} />
+          <text
+            x="107"
+            y="402"
+            fill={markColor}
+            fontFamily={BRAND_FONT}
+            fontSize="412"
+            fontStyle="italic"
+            fontWeight="700"
+            letterSpacing="-24"
+          >
+            S
+          </text>
+          <g clipPath="url(#finalSarathySAccentClip)" opacity={accentOpacity}>
+            <text
+              x="107"
+              y="402"
+              fill="url(#finalSarathySAccent)"
+              fontFamily={BRAND_FONT}
+              fontSize="412"
+              fontStyle="italic"
+              fontWeight="700"
+              letterSpacing="-24"
+            >
+              S
+            </text>
+          </g>
+          <path
+            d="M140 336C194 374 292 391 360 313"
+            fill="none"
+            stroke="#FFB15B"
+            strokeWidth="14"
+            strokeLinecap="round"
+            strokeDasharray="250"
+            strokeDashoffset={0}
+            opacity={0.24 * accentOpacity}
+          />
+        </svg>
+
+        {tailLetters.map((letter, index) => {
+          const letterGather = ease(frame, 24 + index * 3, 28, smoothInOut)
+          const startX = serifTailStartX[index] ?? -184 + index * 116
+          const x = interpolate(letterGather, [0, 1], [startX, -4 + index * 6], clamp)
+          const y = interpolate(letterGather, [0, 1], [interpolate(wordIn, [0, 1], [28, 12], clamp), index % 2 === 0 ? -12 : 14], clamp)
+          const opacityValue = wordIn * (1 - interpolate(letterGather, [0.18, 0.82], [0, 1], clamp))
+          const scale = interpolate(letterGather, [0, 1], [1, 0.44], clamp)
+
+          return (
+            <div
+              key={`${letter}-${index}`}
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                color: COLORS.ink,
+                fontFamily: BRAND_FONT,
+                fontSize: baseFontSize,
+                fontStyle: 'italic',
+                fontWeight: 700,
+                lineHeight: 0.94,
+                letterSpacing: '-0.07em',
+                opacity: opacityValue,
+                transform: `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale})`,
+                transformOrigin: '50% 50%',
+                textShadow: '0 9px 28px rgba(35, 12, 0, 0.18)',
+                willChange: 'transform, opacity',
+                zIndex: 2,
+              }}
+            >
+              {letter}
+            </div>
+          )
+        })}
+      </div>
     </AbsoluteFill>
   )
 }
@@ -1791,6 +2904,9 @@ export const SarathyPromo = ({ appName }: SarathyPromoProps) => {
     method: SEQUENCE_2_END_FRAME + sceneDurations.intro,
     close: SEQUENCE_4_END_FRAME,
     chatbot: SEQUENCE_5_END_FRAME,
+    tools: CHATBOT_END_FRAME,
+    cta: TOOLS_SCENE_END_FRAME,
+    logoEnd: CTA_SCENE_END_FRAME,
   }
 
   return (
@@ -1799,10 +2915,15 @@ export const SarathyPromo = ({ appName }: SarathyPromoProps) => {
       <Sequence from={starts.scattered} durationInFrames={sceneDurations.scattered} premountFor={premount}>
         <ScatteredScene duration={sceneDurations.scattered} />
       </Sequence>
-      <Sequence from={starts.tracker} durationInFrames={sceneDurations.tracker} premountFor={premount}>
+      <Sequence
+        from={starts.tracker}
+        durationInFrames={sceneDurations.tracker + TRACKER_TO_INTRO_OVERLAP_FRAMES}
+        premountFor={premount}
+        style={{ zIndex: 2 }}
+      >
         <TrackerScene duration={sceneDurations.tracker} />
       </Sequence>
-      <Sequence from={starts.intro} durationInFrames={sceneDurations.intro} premountFor={premount}>
+      <Sequence from={starts.intro} durationInFrames={sceneDurations.intro} premountFor={premount} style={{ zIndex: 1 }}>
         <IntroScene duration={sceneDurations.intro} appName={appName} />
       </Sequence>
       <Sequence from={starts.method} durationInFrames={sceneDurations.method} premountFor={premount}>
@@ -1811,9 +2932,24 @@ export const SarathyPromo = ({ appName }: SarathyPromoProps) => {
       <Sequence from={starts.close} durationInFrames={sceneDurations.close} premountFor={premount}>
         <CloseScene duration={sceneDurations.close} />
       </Sequence>
-      <Sequence from={starts.chatbot} durationInFrames={sceneDurations.chatbot} premountFor={premount}>
+      <Sequence
+        from={starts.chatbot}
+        durationInFrames={sceneDurations.chatbot}
+        premountFor={premount}
+        style={{
+          scale: 1.009
+      }}>
         <ChatbotScene />
       </Sequence>
+      <Sequence from={starts.tools} durationInFrames={sceneDurations.tools} premountFor={premount}>
+        <MoneyToolsScene />
+      </Sequence>
+      <Sequence from={starts.cta} durationInFrames={sceneDurations.cta} premountFor={premount}>
+        <CtaScene />
+      </Sequence>
+      <Sequence from={starts.logoEnd} durationInFrames={sceneDurations.logoEnd} premountFor={premount}>
+        <LogoFinalScene duration={sceneDurations.logoEnd} appName={appName} />
+      </Sequence>
     </AbsoluteFill>
-  )
+  );
 }

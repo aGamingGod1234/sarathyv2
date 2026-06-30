@@ -64,6 +64,7 @@ function getApiError(payload: any, fallback: string, status?: number): ApiError 
 function friendlySignInMessage(error: string | null | undefined) {
   if (!error) return null
   if (error === 'CredentialsSignin') return 'Invalid email or password.'
+  if (error.includes('Too many sign-in attempts')) return 'Too many sign-in attempts. Try again later.'
   if (error.includes('verify your email')) return error
   if (error === 'Callback' || error === 'Configuration') {
     return 'Sign in is unavailable right now. Please try again in a minute.'

@@ -59,6 +59,34 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model SecurityAttempt {
+  id               String    @id @default(cuid())
+  scope            String
+  key              String
+  count            Int       @default(0)
+  locked_until     DateTime?
+  last_attempt_at  DateTime  @default(now())
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  @@unique([scope, key])
+  @@index([scope, locked_until])
+  @@map("security_attempts")
+}
+
+model PendingCredentialChange {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String?
+  password_hash  String
+  expires        DateTime
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  @@index([expires])
+  @@map("pending_credential_changes")
+}
+
 model Profile {
   id                    String    @id
   name                  String?
@@ -231,7 +259,7 @@ model WaitlistEntry {
 model Circle {
   id           String   @id @default(cuid())
   name         String
-  invite_code  String   @unique @default(dbgenerated("substr(md5(random()::text), 1, 8)"))
+  invite_code  String   @unique @default(dbgenerated("encode(gen_random_bytes(8), 'hex')"))
   created_by   String
   created_at   DateTime @default(now())
 

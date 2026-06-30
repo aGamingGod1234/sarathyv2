@@ -215,16 +215,16 @@ export default function CirclesPage() {
               </button>
             </div>
             <p className="text-ink-3 text-sm mb-4">
-              Enter the 8-character invite code someone shared with you.
+              Enter the 16-character invite code someone shared with you.
             </p>
             <input
               type="text"
               value={inviteCode}
               onChange={e => setInviteCode(e.target.value)}
-              placeholder="e.g. a1b2c3d4"
+              placeholder="e.g. a1b2c3d4e5f6a7b8"
               className="input-field mb-4 font-mono text-center text-lg tracking-widest"
               autoFocus
-              maxLength={8}
+              maxLength={16}
             />
             {error && <div className="bg-red-50 text-danger text-sm px-4 py-3 rounded-xl mb-4">{error}</div>}
             <button onClick={handleJoin} className="btn-primary" disabled={saving || !inviteCode.trim()}>

@@ -13,25 +13,47 @@ export async function POST(req: Request) {
     }
 
     const user = await prisma.user.findUnique({ where: { email }, select: { id: true, emailVerified: true } })
-    if (!user) {
+    if (!user || user.emailVerified) {
       return NextResponse.json({ error: 'Invalid verification code.' }, { status: 400 })
-    }
-
-    if (user.emailVerified) {
-      return NextResponse.json({ verified: true })
     }
 
     const result = await verifyOtp({ email, purpose: 'email-verification', otp })
     if (!result.ok) {
+      if (result.reason === 'rate_limited') {
+        return NextResponse.json(
+          { error: 'Too many attempts. Send a new code later.', cooldownSeconds: result.retryAfterSeconds },
+          { status: 429 },
+        )
+      }
+
       return NextResponse.json(
         { error: result.reason === 'expired' ? 'That code expired. Send a new one.' : 'Invalid verification code.' },
         { status: 400 },
       )
     }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { emailVerified: new Date() },
+    await prisma.$transaction(async tx => {
+      const pending = await tx.pendingCredentialChange.findUnique({ where: { email } })
+      const now = new Date()
+      const credentialUpdate = pending && pending.expires.getTime() > now.getTime()
+        ? {
+            password_hash: pending.password_hash,
+            password_changed_at: now,
+            ...(pending.name ? { name: pending.name } : {}),
+          }
+        : {}
+
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          emailVerified: now,
+          ...credentialUpdate,
+        },
+      })
+
+      if (pending) {
+        await tx.pendingCredentialChange.delete({ where: { email } })
+      }
     })
 
     return NextResponse.json({ verified: true })

@@ -5,6 +5,12 @@ import GoogleProvider from 'next-auth/providers/google'
 import { encode as defaultJwtEncode, decode as defaultJwtDecode } from 'next-auth/jwt'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import {
+  assertSecurityAttemptAllowed,
+  clearSecurityAttempts,
+  recordSecurityAttemptFailure,
+  SecurityAttemptLimitError,
+} from '@/lib/security-attempts'
 
 const ONE_DAY_SECONDS = 24 * 60 * 60
 export const REMEMBER_ME_MAX_AGE_SECONDS = 60 * ONE_DAY_SECONDS
@@ -29,6 +35,28 @@ async function ensureProfile(user: { id?: string; name?: string | null; email?: 
   })
 }
 
+function credentialsLockoutError() {
+  return new Error('Too many sign-in attempts. Try again later.')
+}
+
+async function assertCredentialsAllowed(email: string) {
+  try {
+    await assertSecurityAttemptAllowed('auth:credentials', email)
+  } catch (err) {
+    if (err instanceof SecurityAttemptLimitError) throw credentialsLockoutError()
+    throw err
+  }
+}
+
+async function recordFailedCredentials(email: string) {
+  try {
+    await recordSecurityAttemptFailure('auth:credentials', email)
+  } catch (err) {
+    if (err instanceof SecurityAttemptLimitError) throw credentialsLockoutError()
+    throw err
+  }
+}
+
 const providers: NextAuthOptions['providers'] = [
   CredentialsProvider({
     name: 'Email',
@@ -43,11 +71,21 @@ const providers: NextAuthOptions['providers'] = [
       const rememberMe = credentials?.rememberMe !== 'false'
       if (!email || !password) return null
 
+      await assertCredentialsAllowed(email)
+
       const user = await prisma.user.findUnique({ where: { email } })
-      if (!user?.password_hash) return null
+      if (!user?.password_hash) {
+        await recordFailedCredentials(email)
+        return null
+      }
 
       const valid = await bcrypt.compare(password, user.password_hash)
-      if (!valid) return null
+      if (!valid) {
+        await recordFailedCredentials(email)
+        return null
+      }
+
+      await clearSecurityAttempts('auth:credentials', email)
 
       if (!user.emailVerified) {
         throw new Error('Please verify your email before signing in.')
