@@ -143,9 +143,12 @@
     inset: -12% !important;
     width: 124% !important;
     height: 124% !important;
+    background: var(--shader-fallback);
+    background-size: 150% 150%;
     opacity: var(--shader-opacity);
     filter: saturate(1.12) contrast(1.04);
     transform: translate3d(0, 0, 0) scale(1.02);
+    animation: shaderGradientDrift 18s ease-in-out infinite alternate;
   }
 
   .shader-backdrop-scrim {
@@ -585,7 +588,8 @@
     transition: none;
   }
 
-  .shader-backdrop-hero {
+  .shader-backdrop-hero,
+  .shader-backdrop-canvas {
     animation: none;
   }
 
