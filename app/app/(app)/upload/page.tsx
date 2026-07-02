@@ -14,7 +14,7 @@ const MONTH_FIRST_CURRENCIES = new Set(['USD'])
 interface Tx { date:string; description:string; amount:number; category:string; selected:boolean }
 type ParsedTx = Pick<Tx, 'date' | 'description' | 'amount'>
 
-function parseCsvRow(line: string) {
+function parseCsvRow(line: string, delimiter = ',') {
   const cols: string[] = []
   let current = ''
   let inQuotes = false
@@ -34,7 +34,7 @@ function parseCsvRow(line: string) {
       continue
     }
 
-    if (char === ',' && !inQuotes) {
+    if (char === delimiter && !inQuotes) {
       cols.push(current.trim())
       current = ''
       continue
@@ -68,6 +68,52 @@ function normalizeHeader(value?: string) {
   return value?.replace(/^\uFEFF/, '').trim().toLowerCase() || ''
 }
 
+function countDelimitedColumns(line: string, delimiter: string) {
+  return parseCsvRow(line, delimiter).length
+}
+
+function detectDelimiter(lines: string[]) {
+  const delimiters = [',', ';', '\t']
+  return delimiters
+    .map(delimiter => ({
+      delimiter,
+      score: lines.slice(0, 10).reduce((sum, line) => sum + Math.max(0, countDelimitedColumns(line, delimiter) - 1), 0),
+    }))
+    .sort((a, b) => b.score - a.score)[0]?.delimiter || ','
+}
+
+function findHeaderRow(lines: string[], delimiter: string) {
+  const maxHeaderScan = Math.min(lines.length, 25)
+  let widestRowIndex = 0
+  let widestRowLength = 0
+
+  for (let i = 0; i < maxHeaderScan; i++) {
+    const headers = parseCsvRow(lines[i], delimiter).map(normalizeHeader)
+    const dateLike = headers.some(isDateHeader)
+    const descriptionLike = headers.some(header => headerMatches(header, [/description/, /merchant/, /payee/, /narration/, /details/, /transaction/]))
+    const amountLike = headers.some(header => headerMatches(header, [/amount/, /debit/, /credit/, /withdraw/, /deposit/, /paid out/, /money in/, /money out/, /value/]))
+
+    if (headers.length > widestRowLength) {
+      widestRowIndex = i
+      widestRowLength = headers.length
+    }
+
+    if (headers.length >= 2 && dateLike && (descriptionLike || amountLike)) return i
+  }
+
+  return widestRowIndex
+}
+
+function looksLikeDateCell(value?: string) {
+  return !!normalizeDateKey(value || '', 'day-first') || !!normalizeDateKey(value || '', 'month-first')
+}
+
+function chooseFallbackIndex(cols: string[], preferredIndex: number, usedIndices: number[], predicate: (value?: string) => boolean) {
+  if (predicate(cols[preferredIndex])) return preferredIndex
+  const index = cols.findIndex((value, candidateIndex) => !usedIndices.includes(candidateIndex) && predicate(value))
+  return index >= 0 ? index : preferredIndex
+}
+
 function headerMatches(header: string, patterns: RegExp[]) {
   return patterns.some(pattern => pattern.test(header))
 }
@@ -95,12 +141,12 @@ function getStatementDateFallbackOrder(currency: string): DateOrder {
   return MONTH_FIRST_CURRENCIES.has(currency) ? 'month-first' : 'day-first'
 }
 
-function statementHasMixedSignedAmounts(lines: string[], amountIndices: number[]) {
+function statementHasMixedSignedAmounts(lines: string[], amountIndices: number[], delimiter = ',') {
   let hasPositiveAmount = false
   let hasNegativeAmount = false
 
   for (const line of lines) {
-    const cols = parseCsvRow(line)
+    const cols = parseCsvRow(line, delimiter)
     for (const index of amountIndices) {
       const amount = parseSignedMoneyCell(cols[index])
       if (amount === null) continue
@@ -188,10 +234,18 @@ export default function UploadPage() {
   }, [])
 
   const parseCSV = (text: string): ParsedTx[] => {
-    const lines = text.trim().split(/\r?\n/)
-    const headers = parseCsvRow(lines[0] || '').map(normalizeHeader)
+    const lines = text
+      .replace(/^\uFEFF/, '')
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean)
+    if (!lines.length) return []
+
+    const delimiter = detectDelimiter(lines)
+    const headerRowIndex = findHeaderRow(lines, delimiter)
+    const headers = parseCsvRow(lines[headerRowIndex] || '', delimiter).map(normalizeHeader)
     const dateIndex = findHeaderIndex(headers, [/date/, /posted/, /transaction date/]) ?? 0
-    const descriptionIndex = findHeaderIndex(headers, [/description/, /merchant/, /payee/, /narration/, /details/]) ?? 1
+    const descriptionIndex = findHeaderIndex(headers, [/description/, /merchant/, /payee/, /narration/, /details/, /transaction details/, /transaction/]) ?? 1
     const typeIndex = findHeaderIndex(headers, [/^type$/, /transaction type/, /^direction$/, /^debit\s*\/\s*credit$/, /^credit\s*\/\s*debit$/, /^debit or credit$/, /^credit or debit$/, /^dr\s*\/\s*cr$/, /^cr\s*\/\s*dr$/])
     const debitIndices = findHeaderIndices(headers, [/debit/, /withdraw/, /money out/, /outflow/, /paid out/, /charge/, /spent/])
       .filter(index => !isDirectionHeader(headers[index]) && !isDateHeader(headers[index]))
@@ -199,17 +253,29 @@ export default function UploadPage() {
       .filter(index => !isDirectionHeader(headers[index]) && !isDateHeader(headers[index]))
     const genericAmountIndices = findHeaderIndices(headers, [/^amount(?:\s*(?:\([^)]+\)|in\s+[a-z]{3}|[a-z]{3}))?$/, /^transaction amount(?:\s*(?:\([^)]+\)|in\s+[a-z]{3}|[a-z]{3}))?$/, /^transaction value(?:\s*(?:\([^)]+\)|in\s+[a-z]{3}|[a-z]{3}))?$/, /^value(?:\s*(?:\([^)]+\)|in\s+[a-z]{3}|[a-z]{3}))?$/])
       .filter(index => !debitIndices.includes(index) && !creditIndices.includes(index))
+    const fallbackAmountIndices = headers
+      .map((_, index) => index)
+      .filter(index => index !== dateIndex && index !== descriptionIndex && index !== typeIndex)
+    const amountIndices = genericAmountIndices.length ? genericAmountIndices : fallbackAmountIndices
+    const dataLines = lines.slice(headerRowIndex + 1)
     const hasExplicitMoneyDirection = typeIndex !== null || debitIndices.length > 0 || creditIndices.length > 0
     const allowPositiveAmountFallback = !hasExplicitMoneyDirection &&
-      !statementHasMixedSignedAmounts(lines.slice(1), genericAmountIndices)
+      !statementHasMixedSignedAmounts(dataLines, amountIndices, delimiter)
     const rawRows: Array<{ rawDate: string; description: string; amount: number }> = []
 
-    for (let i = 1; i < lines.length; i++) {
-      const cols = parseCsvRow(lines[i])
-      if (cols.length < 3) continue
-      const rawDate = cols[dateIndex]?.replace(/^\uFEFF/, '') || cols[0].replace(/^\uFEFF/, '')
-      const description = cols[descriptionIndex] || cols[1]
-      const amount = getExpenseAmount(cols, debitIndices, creditIndices, genericAmountIndices, typeIndex, allowPositiveAmountFallback)
+    for (const line of dataLines) {
+      const cols = parseCsvRow(line, delimiter)
+      if (cols.length < 2) continue
+      const resolvedDateIndex = chooseFallbackIndex(cols, dateIndex, [], looksLikeDateCell)
+      const resolvedDescriptionIndex = chooseFallbackIndex(
+        cols,
+        descriptionIndex,
+        [resolvedDateIndex, ...amountIndices, ...debitIndices, ...creditIndices],
+        value => !!value?.trim() && parseSignedMoneyCell(value) === null && !looksLikeDateCell(value),
+      )
+      const rawDate = cols[resolvedDateIndex]?.replace(/^\uFEFF/, '') || cols[0]?.replace(/^\uFEFF/, '') || ''
+      const description = cols[resolvedDescriptionIndex] || cols[descriptionIndex] || cols[1] || 'Transaction'
+      const amount = getExpenseAmount(cols, debitIndices, creditIndices, amountIndices, typeIndex, allowPositiveAmountFallback)
       if (amount && description) {
         rawRows.push({ rawDate, description, amount })
         if (rawRows.length >= 50) break
@@ -229,6 +295,7 @@ export default function UploadPage() {
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = ''
     setParsing(true); setError(''); setTxs([])
     try {
       const text = await file.text()
