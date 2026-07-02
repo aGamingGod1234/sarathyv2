@@ -10,7 +10,7 @@
     "dev": "next dev",
     "build": "node scripts/clean-next-output.js && prisma generate && next build",
     "postbuild": "node scripts/prepare-standalone.js",
-    "start": "node scripts/prepare-standalone.js && node .next/standalone/server.js",
+    "start": "node .next/standalone/server.js",
     "remotion": "remotion studio src/remotion/index.ts",
     "video:studio": "remotion studio src/remotion/index.ts",
     "video:still": "remotion still src/remotion/index.ts SarathyPromo out/sarathy-promo-frame.png --scale=0.25 --frame=600",
