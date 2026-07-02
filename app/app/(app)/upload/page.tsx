@@ -237,8 +237,7 @@ export default function UploadPage() {
     const lines = text
       .replace(/^\uFEFF/, '')
       .split(/\r?\n/)
-      .map(line => line.trim())
-      .filter(Boolean)
+      .filter(line => line.trim().length > 0)
     if (!lines.length) return []
 
     const delimiter = detectDelimiter(lines)
