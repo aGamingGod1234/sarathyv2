@@ -2,7 +2,7 @@
 
 Sarathy is a Next.js finance tracking app with Auth.js/NextAuth authentication, Prisma, Railway Postgres, email OTP verification, password reset codes, and OpenAI-powered finance assistance.
 
-This repo is ready for a fresh Railway deployment. You do not need Supabase for the current app runtime.
+This repo supports Railway and Vercel deployments. See [Vercel deployment](docs/vercel-deploy.md) for Vercel settings. You do not need Supabase for the current app runtime.
 
 ## Tech Stack
 

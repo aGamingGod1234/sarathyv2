@@ -291,7 +291,10 @@ function SectionHeading({
   )
 }
 
-export default function LandingPage({ initialUser = null }: { initialUser?: LandingUser | null }) {
+export default function LandingPage({ initialUser = null, authConfigured = true }: {
+  initialUser?: LandingUser | null
+  authConfigured?: boolean
+}) {
   const rootRef = useRef<HTMLElement>(null)
   const heroVideoRef = useRef<HTMLVideoElement>(null)
   const heroAudioFrameRef = useRef<number | null>(null)
@@ -302,6 +305,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
   const isSignedIn = Boolean(user)
 
   useEffect(() => {
+    if (!authConfigured) return
     let active = true
 
     const refreshSession = async () => {
@@ -328,7 +332,7 @@ export default function LandingPage({ initialUser = null }: { initialUser?: Land
       window.removeEventListener('focus', refreshSession)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [])
+  }, [authConfigured])
 
   const cancelHeroAudioFade = useCallback(() => {
     if (heroAudioFrameRef.current === null) return
