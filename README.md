@@ -373,8 +373,8 @@ Use the same final domain in any client-facing links.
 
 Requirements:
 
-- Node.js 20
-- npm 10
+- Node.js 24
+- npm 11
 - PostgreSQL, either local or Railway
 
 Setup:
