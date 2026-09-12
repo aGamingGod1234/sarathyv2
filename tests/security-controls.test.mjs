@@ -74,5 +74,5 @@ test('circle joins are throttled and do not return invite-code internals', () =>
 test('Next.js is pinned to the patched 15.5 line', () => {
   const pkg = JSON.parse(read('package.json'))
 
-  assert.equal(pkg.dependencies.next, '15.5.19')
+  assert.equal(pkg.dependencies.next, '15.5.25')
 })
