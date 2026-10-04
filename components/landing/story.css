@@ -1,0 +1,604 @@
+/* Story chapters, prologue, Day 30 recap, FAQ, month rail and floating CTA. Scoped under .lp-root. */
+
+/* Chapter stamp: "Day 9  Can I afford this?" ties every section to Mei's month. */
+
+.lp-chapter {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.lp-chapter > span:first-child {
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: 4px 8px;
+}
+
+/* The original header stays fixed over this chapter; keep objects out from under it. */
+
+.lp-hero-nav-zone {
+  height: 96px;
+}
+
+@media (max-width: 767px) {
+  .lp-hero-nav-zone {
+    height: 124px;
+  }
+  .lp-root .lp-hero-copy-wrap {
+    padding-top: 128px;
+  }
+  /* Clear the original header's second row of links. */
+  .lp-root .lp-lanes {
+    top: 136px;
+  }
+}
+
+/* ---------- Prologue ---------- */
+
+.lp-prologue {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+  padding-block: clamp(96px, 9vw, 120px) clamp(72px, 9vw, 120px);
+}
+
+.lp-prologue-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  align-items: center;
+  gap: clamp(40px, 7vw, 96px);
+}
+
+.lp-definition {
+  position: relative;
+  display: grid;
+  min-height: 420px;
+  place-items: center;
+}
+
+.lp-wheel {
+  position: absolute;
+  width: min(440px, 100%);
+  height: auto;
+  color: var(--border-strong);
+}
+
+.lp-wheel line,
+.lp-wheel-rim,
+.lp-wheel-rim-inner {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+}
+
+.lp-wheel-rim {
+  stroke-width: 3;
+}
+
+.lp-wheel-hub {
+  fill: var(--bg);
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.lp-wheel-axle {
+  fill: var(--text-muted);
+}
+
+.lp-definition-card {
+  position: relative;
+  max-width: 360px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  padding: 24px;
+}
+
+.lp-definition-word {
+  font-family: var(--font-accent), Georgia, serif;
+  font-size: 34px;
+  font-style: italic;
+  line-height: 1;
+  color: var(--text);
+}
+
+.lp-definition-word span {
+  margin-left: 8px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-style: normal;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.lp-definition-text {
+  margin-top: 16px;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  .lp-prologue-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lp-definition {
+    min-height: 340px;
+  }
+}
+
+/* ---------- Day 30 recap ---------- */
+
+.lp-recap {
+  padding-block: clamp(96px, 9vw, 120px) clamp(72px, 9vw, 120px);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.lp-recap-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(40px, 7vw, 96px);
+}
+
+.lp-recap-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  padding: 24px;
+}
+
+.lp-recap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text-muted);
+}
+
+.lp-recap-legend span::before {
+  content: '';
+  display: inline-block;
+  height: 9px;
+  width: 9px;
+  margin-right: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--state);
+}
+
+/* Local calendar state bindings use the shared semantic status roles. */
+.lp-recap [data-state='safe'] {
+  --state: var(--positive);
+  --state-soft: var(--positive-subtle);
+  --state-ink: var(--positive-text);
+}
+
+.lp-recap [data-state='tight'] {
+  --state: var(--caution);
+  --state-soft: var(--caution-subtle);
+  --state-ink: var(--caution-text);
+}
+
+.lp-recap [data-state='over'] {
+  --state: var(--negative);
+  --state-soft: var(--negative-subtle);
+  --state-ink: var(--negative-text);
+}
+
+.lp-cal {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.lp-cal-weekday {
+  padding-bottom: 4px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.lp-cal-day {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  background: var(--state-soft);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--state-ink);
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border-strong);
+  transition: border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out);
+}
+
+.lp-cal-day[data-note]::after {
+  content: '';
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  height: 5px;
+  width: 5px;
+  border-radius: 50%;
+  background: var(--state);
+}
+
+.lp-cal-day:hover {
+  border-color: var(--text-muted);
+}
+
+.lp-cal-day[aria-pressed='true'] {
+  background: var(--state-soft);
+  color: var(--state-ink);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.lp-cal-day[aria-pressed='true']::after {
+  background: var(--state);
+}
+
+.lp-recap-note {
+  min-height: 108px;
+  margin-top: 16px;
+  border-radius: var(--radius-lg);
+  padding: 16px 16px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+}
+
+.lp-recap-note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.lp-recap-pill {
+  border-radius: var(--radius-sm);
+  background: var(--state-soft);
+  padding: 4px 8px;
+  font-size: 12px;
+  color: var(--state-ink);
+  border: 1px solid var(--border);
+}
+
+.lp-recap-note-text {
+  margin-top: 8px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--text);
+  animation: lpReplyIn var(--dur-slow) var(--ease-out) both;
+}
+
+@media (max-width: 900px) {
+  .lp-recap-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .lp-cal {
+    gap: 4px;
+  }
+  .lp-cal-day {
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    border: 1px solid var(--border-strong);
+    transition: border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out);
+  }
+}
+
+/* ---------- FAQ ---------- */
+
+.lp-faq {
+  max-width: 820px;
+  margin: clamp(72px, 9vw, 112px) auto 0;
+}
+
+.lp-faq-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  text-align: center;
+  color: var(--text);
+}
+
+.lp-faq-list {
+  margin-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.lp-faq-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.lp-faq-q {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 4px;
+  text-align: left;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.lp-faq-icon {
+  flex: none;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.lp-faq-item[data-open] .lp-faq-icon {
+  transform: rotate(45deg);
+}
+
+/* Height animates through grid rows so the answer never jumps. */
+
+.lp-faq-a {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-slow) var(--ease-out),
+    visibility var(--dur-slow) var(--ease-out);
+}
+
+.lp-faq-item[data-open] .lp-faq-a {
+  grid-template-rows: 1fr;
+}
+
+.lp-faq-item:not([data-open]) .lp-faq-a {
+  visibility: hidden;
+}
+
+.lp-faq-a > div {
+  overflow: hidden;
+}
+
+.lp-faq-a p {
+  max-width: 44rem;
+  padding: 0 4px 24px;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+/* ---------- Month rail + floating CTA ---------- */
+
+.lp-rail {
+  position: fixed;
+  z-index: 40;
+  left: 24px;
+  top: 50%;
+  display: none;
+  transform: translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease-out);
+  color: var(--text);
+}
+
+@media (min-width: 1360px) {
+  .lp-rail {
+    display: block;
+  }
+}
+
+.lp-rail[data-visible] {
+  opacity: 1;
+}
+
+.lp-rail[data-dark] {
+  color: var(--on-primary);
+}
+
+.lp-rail-label {
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+.lp-rail-track {
+  position: relative;
+  display: grid;
+  gap: 8px;
+}
+
+.lp-rail-tick {
+  display: block;
+  height: 4px;
+  width: 10px;
+  border-radius: var(--radius-xs);
+  background: currentColor;
+  opacity: 0.16;
+  transition: opacity var(--dur-slow) var(--ease-out),
+    background-color var(--dur-slow) var(--ease-out),
+    width var(--dur-slow) var(--ease-out);
+}
+
+.lp-rail-tick[data-chapter] {
+  width: 16px;
+}
+
+.lp-rail-tick[data-filled] {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.lp-rail-marker {
+  position: absolute;
+  left: 24px;
+  top: -6px;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition: transform var(--dur-slow) var(--ease-out);
+  color: var(--on-accent);
+  padding: 4px 8px;
+}
+
+.lp-float {
+  position: fixed;
+  z-index: 45;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  transform: translateY(16px);
+  pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+  background: color-mix(in oklab, var(--surface) 96%, transparent);
+  padding: 4px;
+  box-shadow: var(--shadow-md);
+}
+
+.lp-float[data-visible] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.lp-float-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  font-size: 14.5px;
+  font-weight: 700;
+  background: var(--primary);
+  color: var(--on-primary);
+  padding: 10px 16px;
+  min-height: 40px;
+  border: 1px solid var(--primary);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.lp-float-price {
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  background: color-mix(in oklab, var(--on-primary) 12%, transparent);
+  padding: 4px 8px;
+}
+
+.lp-float-price:empty {
+  display: none;
+}
+
+.lp-float-cta svg {
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.lp-float-cta:hover svg {
+  transform: translateX(3px);
+}
+
+@media (max-width: 767px) {
+  .lp-float {
+    right: 12px;
+    bottom: 12px;
+  }
+}
+
+.lp-eyebrow,
+.lp-chapter > span:first-child,
+.lp-tier,
+.lp-check-status,
+.lp-check-label,
+.lp-hero-number-label,
+.lp-lane-label,
+.lp-step-index,
+.lp-recap-legend,
+.lp-recap-pill,
+.lp-cal-weekday,
+.lp-cal-day,
+.lp-range-scale,
+.lp-future-goal-delta,
+.lp-chart-goal-label,
+.lp-chart-month,
+.lp-plan-badge,
+.lp-footer-head,
+.lp-rail-label,
+.lp-rail-marker,
+.lp-float-price {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-tier,
+.lp-cal-weekday,
+.lp-rail-label,
+.lp-rail-marker,
+.lp-float-price {
+  font-size: 11px;
+}
+
+@media (max-width: 767px) {
+  .lp-lane-label {
+    font-size: 11px;
+  }
+}
+
+/* SVG viewBox coordinates scale with the chart. Keep axis text at a rendered 12px. */
+@supports (font-size: calc(12px * (640px / 100cqw))) {
+  .lp-future-chart {
+    container-type: inline-size;
+  }
+
+  .lp-chart-month,
+  .lp-chart-goal-label {
+    font-size: calc(12px * (640px / 100cqw));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-rail,
+  .lp-float,
+  .lp-faq-a {
+    transition: none;
+  }
+}
+
+/* WebGL fallback chips wait for the sort phase like the 3D objects do (--hero-p is set on scroll). */
+
+.lp-lane-fallback li {
+  opacity: clamp(0, calc((var(--hero-p, 0) - 0.16) * 10), 1);
+  transform: translateY(calc((1 - clamp(0, calc((var(--hero-p, 0) - 0.16) * 10), 1)) * 24px));
+}
