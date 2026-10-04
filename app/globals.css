@@ -81,6 +81,32 @@
     backdrop-filter: url("#liquid-glass-refraction") blur(1.5px) saturate(2.4) contrast(1.26) brightness(1.015);
     -webkit-backdrop-filter: blur(1.5px) saturate(2.4) contrast(1.26) brightness(1.015);
     will-change: backdrop-filter;
+    transition:
+      background-color 260ms ease,
+      border-color 260ms ease,
+      box-shadow 260ms ease;
+  }
+
+  /* Below the hero the refraction and tinted surface read as purple grain over flat light
+     sections, so StoryChrome flags the header and the nav settles into plain frosted glass:
+     white over light sections (slate-200 border), ink-975 over dark ones (ink-900 border). */
+  .site-header[data-past-hero] .liquid-glass-nav {
+    background-color: rgba(255, 255, 255, 0.84);
+    border-color: rgba(228, 228, 235, 0.95);
+    box-shadow: 0 8px 24px rgba(27, 25, 57, 0.06);
+    backdrop-filter: blur(16px) saturate(1.3);
+    -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  }
+
+  .site-header[data-past-hero][data-dark] .liquid-glass-nav {
+    background-color: rgba(16, 10, 47, 0.8);
+    border-color: rgba(49, 47, 89, 0.95);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .site-header[data-past-hero] .liquid-glass-nav::before,
+  .site-header[data-past-hero] .liquid-glass-nav::after {
+    opacity: 0;
   }
 
   .liquid-glass-nav::before {
@@ -119,137 +145,12 @@
       inset 0 18px 32px rgba(255, 255, 255, 0.055),
       inset 0 -24px 46px rgba(30, 10, 46, 0.11);
     pointer-events: none;
+    transition: opacity 260ms ease;
   }
 
   .liquid-glass-nav > * {
     position: relative;
     z-index: 1;
-  }
-
-  .shader-backdrop {
-    --shader-opacity: 0.38;
-    --shader-fallback: linear-gradient(135deg, rgba(255, 243, 232, 0.92), rgba(233, 248, 240, 0.78));
-    --shader-scrim: linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.88));
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    overflow: hidden;
-    pointer-events: none;
-    background: var(--shader-fallback);
-  }
-
-  .shader-backdrop-canvas {
-    position: absolute !important;
-    inset: -12% !important;
-    width: 124% !important;
-    height: 124% !important;
-    background: var(--shader-fallback);
-    background-size: 150% 150%;
-    opacity: var(--shader-opacity);
-    filter: saturate(1.12) contrast(1.04);
-    transform: translate3d(0, 0, 0) scale(1.02);
-    animation: shaderGradientDrift 18s ease-in-out infinite alternate;
-  }
-
-  .shader-backdrop-scrim {
-    position: absolute;
-    inset: 0;
-    background: var(--shader-scrim);
-  }
-
-  .shader-backdrop-hero {
-    --shader-opacity: 0.84;
-    --shader-fallback:
-      linear-gradient(118deg, transparent 0 30%, rgba(249, 115, 22, 0.66) 48%, rgba(233, 248, 240, 0.3) 65%, transparent 82%),
-      linear-gradient(160deg, rgba(30, 10, 46, 0.98) 0%, rgba(8, 11, 18, 0.98) 46%, rgba(8, 11, 18, 0.98) 100%);
-    --shader-scrim:
-      radial-gradient(ellipse at 48% 44%, transparent 0%, rgba(8, 11, 18, 0.16) 42%, rgba(8, 11, 18, 0.9) 100%),
-      linear-gradient(90deg, rgba(8, 11, 18, 0.88), rgba(8, 11, 18, 0.28) 32%, rgba(8, 11, 18, 0.78));
-    inset: -12%;
-    animation: shaderGradientDrift 16s ease-in-out infinite alternate;
-  }
-
-  .shader-backdrop-problem {
-    --shader-opacity: 0.46;
-    --shader-fallback:
-      radial-gradient(circle at 18% 24%, rgba(249, 115, 22, 0.36), transparent 40%),
-      radial-gradient(circle at 86% 10%, rgba(16, 185, 129, 0.18), transparent 36%),
-      linear-gradient(135deg, #fff2e5 0%, #eefaf3 54%, #fff0df 100%);
-    --shader-scrim:
-      linear-gradient(90deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.28)),
-      radial-gradient(circle at 72% 18%, rgba(255, 255, 255, 0.42), transparent 46%);
-  }
-
-  .shader-backdrop-loop {
-    --shader-opacity: 0.48;
-    --shader-fallback:
-      radial-gradient(circle at 78% 20%, rgba(16, 185, 129, 0.28), transparent 38%),
-      radial-gradient(circle at 14% 84%, rgba(249, 115, 22, 0.2), transparent 42%),
-      linear-gradient(135deg, #ddf7e9 0%, #fff0df 52%, #eefaf3 100%);
-    --shader-scrim: linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.5));
-  }
-
-  .shader-backdrop-features {
-    --shader-opacity: 0.44;
-    --shader-fallback:
-      radial-gradient(circle at 12% 20%, rgba(249, 115, 22, 0.28), transparent 36%),
-      radial-gradient(circle at 88% 12%, rgba(30, 10, 46, 0.18), transparent 42%),
-      radial-gradient(circle at 64% 82%, rgba(16, 185, 129, 0.16), transparent 44%),
-      linear-gradient(145deg, #fff6ee 0%, #eefaf3 58%, #fff0df 100%);
-    --shader-scrim: linear-gradient(110deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.3));
-  }
-
-  .shader-backdrop-tools {
-    --shader-opacity: 0.5;
-    --shader-fallback:
-      radial-gradient(circle at 18% 18%, rgba(249, 115, 22, 0.32), transparent 40%),
-      radial-gradient(circle at 82% 18%, rgba(16, 185, 129, 0.2), transparent 38%),
-      radial-gradient(circle at 56% 88%, rgba(45, 17, 71, 0.16), transparent 44%),
-      linear-gradient(135deg, #fff2e5 0%, #eaf9f1 58%, #fff0df 100%);
-    --shader-scrim: linear-gradient(120deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.52));
-  }
-
-  .shader-backdrop-pricing {
-    --shader-opacity: 0.5;
-    --shader-fallback:
-      radial-gradient(circle at 20% 12%, rgba(249, 115, 22, 0.32), transparent 42%),
-      radial-gradient(circle at 92% 26%, rgba(45, 17, 71, 0.22), transparent 40%),
-      radial-gradient(circle at 58% 88%, rgba(16, 185, 129, 0.14), transparent 46%),
-      linear-gradient(135deg, #fff2e5 0%, #f8f4ef 50%, #fff0df 100%);
-    --shader-scrim: linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.52));
-  }
-
-  .shader-backdrop-footer {
-    --shader-opacity: 0.32;
-    --shader-fallback:
-      radial-gradient(circle at 24% 20%, rgba(249, 115, 22, 0.26), transparent 42%),
-      radial-gradient(circle at 86% 18%, rgba(16, 185, 129, 0.12), transparent 38%),
-      linear-gradient(135deg, #05070d 0%, #160821 48%, #05070d 100%);
-    --shader-scrim:
-      linear-gradient(180deg, rgba(5, 7, 13, 0.86), rgba(5, 7, 13, 0.92)),
-      linear-gradient(90deg, rgba(5, 7, 13, 0.9), rgba(30, 10, 46, 0.76));
-  }
-
-  .shader-backdrop-footer .shader-backdrop-canvas {
-    filter: saturate(0.95) contrast(1.08) brightness(0.72);
-  }
-
-  .landing-footer {
-    background:
-      radial-gradient(circle at 22% 12%, rgba(249, 115, 22, 0.2), transparent 36%),
-      radial-gradient(circle at 88% 16%, rgba(16, 185, 129, 0.1), transparent 34%),
-      linear-gradient(135deg, #05070d 0%, #160821 50%, #05070d 100%);
-  }
-
-  .landing-footer::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background:
-      linear-gradient(180deg, rgba(5, 7, 13, 0.78), rgba(5, 7, 13, 0.88)),
-      linear-gradient(90deg, rgba(5, 7, 13, 0.9), rgba(30, 10, 46, 0.74));
-    pointer-events: none;
   }
 
   .safe-number {
@@ -557,22 +458,6 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes shaderGradientDrift {
-  0% {
-    background-position: 37% 58%, 59% 43%, center;
-    transform: translate3d(-1%, -0.6%, 0) scale(1.04) rotate(0.001deg);
-  }
-
-  50% {
-    background-position: 45% 52%, 53% 49%, center;
-  }
-
-  100% {
-    background-position: 51% 47%, 47% 55%, center;
-    transform: translate3d(1%, 0.6%, 0) scale(1.06) rotate(0.001deg);
-  }
-}
-
 @keyframes sarathyComposerQuotaShake {
   0% { transform: translateX(0); }
   18% { transform: translateX(-7px); }
@@ -588,26 +473,8 @@
     transition: none;
   }
 
-  .shader-backdrop-hero,
-  .shader-backdrop-canvas {
-    animation: none;
-  }
-
   .sarathy-composer-quota-shake {
     animation: none;
-  }
-
-  .shader-backdrop-canvas {
-    opacity: 0.26;
-  }
-
-  .shader-backdrop-hero .shader-backdrop-canvas,
-  .shader-backdrop-footer .shader-backdrop-canvas {
-    opacity: 0.42;
-  }
-
-  .shader-backdrop-footer .shader-backdrop-canvas {
-    opacity: 0.24;
   }
 }
 
